@@ -1,17 +1,17 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from 'tsup';
 
 export default defineConfig((options) => {
   return {
     entry: [
-      "src/index.ts"
+      'src/index.ts',
     ],
-    format: ["cjs", "esm"],
+    format: ['cjs', 'esm'],
     dts: true,
     splitting: false,
     sourcemap: options.watch ? true : undefined,
     minify: !options.watch ? 'terser' : false,
     clean: true,
-    target: "node22",
+    target: 'node18',
     terserOptions: {
       parse: {},
       compress: {
@@ -19,14 +19,14 @@ export default defineConfig((options) => {
         drop_console: true,
         ecma: 2020,
         hoist_funs: true,
-        module: true
+        module: true,
       },
       mangle: {
-        eval: true
+        eval: true,
       },
       format: {
         braces: true,
-        indent_level: 0
+        indent_level: 0,
       },
       ecma: 2020,
       enclose: false,
@@ -36,7 +36,7 @@ export default defineConfig((options) => {
       module: true,
       nameCache: {},
       safari10: false,
-      toplevel: false
-    }
-  }
+      toplevel: false,
+    },
+  };
 });

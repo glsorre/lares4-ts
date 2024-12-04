@@ -15,9 +15,8 @@ import {
   type Lares4ThermostatSeasons,
   type Lares4ExportedThermostat,
   type Lares4EmittedSensorStatus,
-  Lares4UpdatePayloadKeys,
-  Lares4TemperatureStatus,
-  Lares4EmittedTemperatures
+  type Lares4TemperatureStatus,
+  type Lares4EmittedTemperatures,
 } from '../index';
 
 import crypto from 'crypto';
@@ -27,12 +26,12 @@ import { Emitter } from '@mnasyrov/pubsub';
 
 import { Deferred } from './Deferred';
 import { Lares4CommandFactory } from './CommandFactory';
-import { Lares4Logger } from './Logger';
+import { GenericLogger, Lares4Logger } from './Logger';
 
 import * as log from '../log';
 
 export class Lares4Factory {
-  static async createLares4(sender: string, ip: string, pin: string, external_logger?: any) {
+  static async createLares4(sender: string, ip: string, pin: string, external_logger?: GenericLogger) {
     const lares4 = new Lares4(sender, ip, pin, external_logger);
     await lares4.init();
     return lares4;
@@ -101,33 +100,33 @@ export class Lares4 {
     return this._accessories.outputs
       ?.map((output, index) => ({
         id: index,
-        details: output
+        details: output,
       }))
       ?.filter((output, index) => 
         output.details.CAT === 'LIGHT' &&
         this.status?.outputs &&
-        !this.status.outputs[index]?.POS
-    ) ?? [];
+        !this.status.outputs[index]?.POS,
+      ) ?? [];
   }
 
   get dimmers() : Lares4ExportedOutput[] {
     return this._accessories.outputs
       ?.map((output, index) => ({
         id: index,
-        details: output
+        details: output,
       }))
       ?.filter((output, index) => 
         output.details.CAT === 'LIGHT' &&
         this.status?.outputs &&
-        this.status.outputs[index]?.POS
-    ) ?? [];
+        this.status.outputs[index]?.POS,
+      ) ?? [];
   }
 
   get shutters(): Lares4ExportedOutput[] {
     return this._accessories.outputs
       ?.map((output, index) => ({
         id: index,
-        details: output
+        details: output,
       }))
       ?.filter(output => output.details.CAT === 'ROLL') ?? [];
   }
@@ -136,26 +135,26 @@ export class Lares4 {
     return this._configuration.scenarios
       ?.map((scenario, index) => ({
         id: index,
-        details: scenario
+        details: scenario,
       }))
       .filter(scenario => scenario.details.CAT !== 'ARM' && scenario.details.CAT !== 'DISARM') ?? [];
   }
 
   get thermostats(): Lares4ExportedThermostat[] {
     return this._status.sensors
-      ?.filter(sensor => sensor.hasOwnProperty('DOMUS'))
+      ?.filter(sensor => Object.hasOwn(sensor, 'DOMUS'))
       ?.map((sensor, index) => {
         const configuration = this._configuration.thermostats?.find(thermostat => thermostat.ID === sensor.ID);
         return {
           sensor: {
             id: index,
-            details: sensor
+            details: sensor,
           },
           configuration: {
             id: this._configuration.thermostats?.findIndex(thermostat => thermostat.ID === sensor.ID) ?? -1,
-            details: configuration
-          }
-        }
+            details: configuration,
+          },
+        };
       }) ?? [];
   }
 
@@ -163,7 +162,7 @@ export class Lares4 {
     sender: string,
     ip: string,
     pin: string,
-    external_logger?: any
+    external_logger?: GenericLogger,
   ) {
     this._cmd_fatory = new Lares4CommandFactory(sender, pin);
     this._logger = new Lares4Logger(external_logger);
@@ -181,59 +180,59 @@ export class Lares4 {
     }); 
   }
 
-  private getLogin(data: any) {
-    data = JSON.parse(data);
+  private getLogin(_data: string) {
+    const data = JSON.parse(_data) as Lares4Command;
     if (data.PAYLOAD?.RESULT === 'OK') {
       this._logger.log(`Logged in to Lares4 as ${data.PAYLOAD.DESCRIPTION}`); 
       this._login_deferred.resolve(data.PAYLOAD.ID_LOGIN);
     } else {
-      this._logger.error(`Failed to login to Lares4`);
+      this._logger.error('Failed to login to Lares4');
       this._login_deferred.reject();
     }
   }
 
-  private getAccessories(deferred: Deferred, data:any) {
+  private getAccessories(deferred: Deferred, data: Lares4Command) {
     if (data.PAYLOAD?.OUTPUTS && data.PAYLOAD?.BUS_HAS) {
       this._logger.log('Received outputs and perhiperals');
       deferred.resolve({
         outputs: data.PAYLOAD.OUTPUTS,
-        perhiperals: data.PAYLOAD.BUS_HAS
+        perhiperals: data.PAYLOAD.BUS_HAS,
       });
     } else {
-      this._logger.error(`Failed to get outputs and perhiperals`);
+      this._logger.error('Failed to get outputs and perhiperals');
       deferred.reject();
     }
   }
 
-  private getStatus(deferred: Deferred, data: any) {
+  private getStatus(deferred: Deferred, data: Lares4Command) {
     if (data.PAYLOAD?.STATUS_OUTPUTS) {
       deferred.resolve({
         outputs: data.PAYLOAD.STATUS_OUTPUTS,
         systems: data.PAYLOAD.STATUS_SYSTEM,
         sensors: data.PAYLOAD.STATUS_BUS_HA_SENSORS,
-        temperatures: data.PAYLOAD.STATUS_TEMPERATURES
+        temperatures: data.PAYLOAD.STATUS_TEMPERATURES,
       });
     } else {
-      this._logger.error(`Failed to get system status`);
+      this._logger.error('Failed to get system status');
       deferred.reject();
     }
   }
 
-  private getConfiguration(deferred: Deferred, data: any) {
+  private getConfiguration(deferred: Deferred, data: Lares4Command) {
     if (data.PAYLOAD?.CFG_THERMOSTATS && data.PAYLOAD?.SCENARIOS) {
       deferred.resolve({
         thermostats: data.PAYLOAD.CFG_THERMOSTATS,
         scenarios: data.PAYLOAD.SCENARIOS,
-        outputs: data.PAYLOAD.PRG_OUTPUTS
+        outputs: data.PAYLOAD.PRG_OUTPUTS,
       });
     } else {
-      this._logger.error(`Failed to get thermostats configuration and scenarios`);
+      this._logger.error('Failed to get thermostats configuration and scenarios');
       deferred.reject();
     }
   }
 
-  private getInitState(deferreds: Record<string, Deferred>, data: any) {
-    data = JSON.parse(data);
+  private getInitState(deferreds: Record<string, Deferred>, _data: string) {
+    const data = JSON.parse(_data) as Lares4Command;
     if (data.PAYLOAD?.OUTPUTS && data.PAYLOAD?.BUS_HAS) {
       this.getAccessories(deferreds.accessories, data);
     }
@@ -253,14 +252,14 @@ export class Lares4 {
     const set_output_cmd: Lares4Command = this._cmd_fatory.build_cmd(
       'CMD_USR',
       'CMD_SET_OUTPUT',{
-        ID_LOGIN: true,
-        PIN: true,
+        ID_LOGIN: 'true',
+        PIN: 'true',
         OUTPUT: {
           ID: `${id}`,
-          STA: `${value}`
-        }
-      }
-    )
+          STA: `${value}`,
+        },
+      },
+    );
     this.send(set_output_cmd);
   }
 
@@ -269,13 +268,13 @@ export class Lares4 {
       'CMD_USR',
       'CMD_EXE_SCENARIO',
       {
-        ID_LOGIN: true,
-        PIN: true,
+        ID_LOGIN: 'true',
+        PIN: 'true',
         SCENARIO: {
-          ID: `${id}`
-        }
-      }
-    )
+          ID: `${id}`,
+        },
+      },
+    );
     this.send(trigger_scenario_cmd);
   }
 
@@ -284,16 +283,16 @@ export class Lares4 {
       'WRITE_CFG',
       'CFG_ALL',
       {
-        ID_LOGIN: true,
+        ID_LOGIN: 'true',
         CFG_THERMOSTATS: [
           {
             ID: `${id}`,
             ACT_MODE: `${mode}`,
-            MAN_HRS: '00'
-          }
-        ]
-      }
-    )
+            MAN_HRS: '00',
+          },
+        ],
+      },
+    );
     this.send(set_thermostat_cmd);
   }
 
@@ -302,15 +301,15 @@ export class Lares4 {
       'WRITE_CFG',
       'CFG_ALL',
       {
-        ID_LOGIN: true,
+        ID_LOGIN: 'true',
         CFG_THERMOSTATS: [
           {
             ID: `${id}`,
-            MAN_HRS: time
-          }
-        ]
-      }
-    )
+            MAN_HRS: time,
+          },
+        ],
+      },
+    );
     this.send(set_thermostat_cmd);
   }
 
@@ -319,15 +318,15 @@ export class Lares4 {
       'WRITE_CFG',
       'CFG_ALL',
       {
-        ID_LOGIN: true,
+        ID_LOGIN: 'true',
         CFG_THERMOSTATS: [
           {
             ID: `${id}`,
-            ACT_SEA: `${season}`
-          }
-        ]
-      }
-    )
+            ACT_SEA: `${season}`,
+          },
+        ],
+      },
+    );
     this.send(set_thermostat_cmd);
   }
 
@@ -336,30 +335,30 @@ export class Lares4 {
       'WRITE_CFG',
       'CFG_ALL',
       {
-        ID_LOGIN: true,
+        ID_LOGIN: 'true',
         CFG_THERMOSTATS: [
           {
             ID: `${id}`,
             [season as string]: {
-              TM: `${target}`
-            }
-          }
-        ]
-      }
-    )
+              TM: `${target}`,
+            },
+          },
+        ],
+      },
+    );
     this.send(set_thermostat_cmd);
   }
 
   private async requestConfiguration(deferred: Deferred) {
     const get_configuration_cmd = this._cmd_fatory.build_cmd(
-      "READ",
-      "MULTI_TYPES",
+      'READ',
+      'MULTI_TYPES',
       {
-        ID_LOGIN: true,
-        ID_READ: "1",
-        TYPES: ["CFG_THERMOSTATS", "SCENARIOS", "PRG_OUTPUTS"]
-      }
-    )
+        ID_LOGIN: 'true',
+        ID_READ: '1',
+        TYPES: ['CFG_THERMOSTATS', 'SCENARIOS', 'PRG_OUTPUTS'],
+      },
+    );
 
     this.send(get_configuration_cmd);
     return await deferred.promise;
@@ -370,10 +369,10 @@ export class Lares4 {
       'REALTIME',
       'REGISTER',
       {
-        ID_LOGIN: true,
-        TYPES: ['STATUS_OUTPUTS', 'STATUS_SYSTEM', 'STATUS_BUS_HA_SENSORS', 'STATUS_TEMPERATURES']
-      }
-    )
+        ID_LOGIN: 'true',
+        TYPES: ['STATUS_OUTPUTS', 'STATUS_SYSTEM', 'STATUS_BUS_HA_SENSORS', 'STATUS_TEMPERATURES'],
+      },
+    );
 
     this.send(get_status_cmd);
     return await deferred.promise;
@@ -384,11 +383,11 @@ export class Lares4 {
       'READ',
       'MULTI_TYPES',
       {
-        ID_LOGIN: true,
+        ID_LOGIN: 'true',
         ID_READ: '1',
-        TYPES: ['OUTPUTS', 'BUS_HAS']
-      }
-    )
+        TYPES: ['OUTPUTS', 'BUS_HAS'],
+      },
+    );
 
     this.send(get_outputs_cmd);
     return await deferred.promise;
@@ -399,16 +398,16 @@ export class Lares4 {
       'LOGIN',
       'UNKNOWN',
       {
-        PIN: true
-      }
-    )
+        PIN: 'true',
+      },
+    );
 
     this.on('open', async () => {
       this._logger.log('Connected to Lares4');
       this.send(login_cmd);
-    })
+    });
 
-    return await this._login_deferred.promise;
+    return await this._login_deferred.promise as string;
   }
 
   public async init() {
@@ -420,13 +419,13 @@ export class Lares4 {
     const init_deferreds = {
       accessories: new Deferred(),
       status: new Deferred(),
-      configuration: new Deferred()
-    } 
+      configuration: new Deferred(),
+    }; 
     this.on('message', this.getInitState.bind(this, init_deferreds));
     const [accessories, status, configuration] = await Promise.all([
       this.requestAccessories(init_deferreds.accessories),
       this.requestStatus(init_deferreds.status),
-      this.requestConfiguration(init_deferreds.configuration)
+      this.requestConfiguration(init_deferreds.configuration),
     ]);
     this.offAll('message');
 
@@ -447,12 +446,12 @@ export class Lares4 {
     this._logger.log('Listening for updates...');
   }
 
-  public on(event: string, callback: (data: any) => void) {
+  public on(event: string, callback: (data: unknown) => void) {
     this._logger.log(`Listening for ${event}`);
     this._ws.on(event, callback);
   }
 
-  public off(event: string, callback: (data: any) => void) {
+  public off(event: string, callback: (data: unknown) => void) {
     this._logger.log(`Removing listener for ${event}`);
     this._ws.off(event, callback);
   }
@@ -466,68 +465,76 @@ export class Lares4 {
         if (receiver === this._cmd_fatory.get_sender) {
           for (const updates of Object.keys(updateData.PAYLOAD[receiver])) {
             switch (updates) {
-              case 'STATUS_OUTPUTS':
-                for (const update of updateData.PAYLOAD[receiver][updates]) {
-                  this._status.outputs?.forEach((output, index) => {
-                    if (output.ID === update.ID) {
-                      if (this._status.outputs) this._status.outputs[index] = {
-                        ...update
+            case 'STATUS_OUTPUTS':
+              for (const update of updateData.PAYLOAD[receiver][updates]) {
+                this._status.outputs?.forEach((output, index) => {
+                  if (output.ID === update.ID) {
+                    if (this._status.outputs) {
+                      this._status.outputs[index] = {
+                        ...update,
                       } as Lares4OutputStatus;
-                      this.outputs_status_emitter.emit({
-                        id: index,
-                        status: update as Lares4OutputStatus
-                      });
-                      this._logger.log(log.outputStatus(this, Number(update.ID)));
                     }
-                  });
-                };
-                break;
-              case 'STATUS_SYSTEM':
-                for (const update of updateData.PAYLOAD[receiver][updates]) {
-                  this._status.systems?.forEach((status, index) => {
-                    if (status.ID === update.ID) {
-                      if (this._status.systems) this._status.systems[index] = {
-                        ...update
+                    this.outputs_status_emitter.emit({
+                      id: index,
+                      status: update as Lares4OutputStatus,
+                    });
+                    this._logger.log(log.outputStatus(this, Number(update.ID)));
+                  }
+                });
+              };
+              break;
+            case 'STATUS_SYSTEM':
+              for (const update of updateData.PAYLOAD[receiver][updates]) {
+                this._status.systems?.forEach((status, index) => {
+                  if (status.ID === update.ID) {
+                    if (this._status.systems) {
+                      this._status.systems[index] = {
+                        ...update,
                       } as Lares4SystemStatus;
-                      this._logger.log(log.systemStatus(this, Number(update.ID)));
                     }
-                  });
-                }
-                break;
-              case 'STATUS_BUS_HA_SENSORS':
-                for (const update of updateData.PAYLOAD[receiver][updates]) {
-                  this._status.sensors?.forEach((sensor, index) => {
-                    if (sensor.ID === update.ID) {
-                      if (this._status.sensors) this._status.sensors[index] = {
-                        ...update
+                    this._logger.log(log.systemStatus(this, Number(update.ID)));
+                  }
+                });
+              }
+              break;
+            case 'STATUS_BUS_HA_SENSORS':
+              for (const update of updateData.PAYLOAD[receiver][updates]) {
+                this._status.sensors?.forEach((sensor, index) => {
+                  if (sensor.ID === update.ID) {
+                    if (this._status.sensors) {
+                      this._status.sensors[index] = {
+                        ...update,
                       } as Lares4SensorStatus;
-                      this.sensors_status_emitter.emit({
-                        id: index,
-                        status: update as Lares4SensorStatus
-                      });
-                      this._logger.log(log.sensorStatus(this, Number(update.ID)));
                     }
-                  });
-                }
-                break;
-              case 'STATUS_TEMPERATURES':
-                for (const update of updateData.PAYLOAD[receiver][updates]) {
-                  this._status.temperatures?.forEach((temperature, index) => {
-                    if (temperature.ID === update.ID) {
-                      if (this._status.temperatures) this._status.temperatures[index] = {
-                        ...update
+                    this.sensors_status_emitter.emit({
+                      id: index,
+                      status: update as Lares4SensorStatus,
+                    });
+                    this._logger.log(log.sensorStatus(this, Number(update.ID)));
+                  }
+                });
+              }
+              break;
+            case 'STATUS_TEMPERATURES':
+              for (const update of updateData.PAYLOAD[receiver][updates]) {
+                this._status.temperatures?.forEach((temperature, index) => {
+                  if (temperature.ID === update.ID) {
+                    if (this._status.temperatures) {
+                      this._status.temperatures[index] = {
+                        ...update,
                       } as Lares4TemperatureStatus;
-                      this.temperatures_status_emitter.emit({
-                        id: index,
-                        status: update as Lares4TemperatureStatus
-                      });
-                      this._logger.log(log.temperatureStatus(this, Number(update.ID)));
                     }
-                  });
-                }
-                break;
-              default:
-                break;
+                    this.temperatures_status_emitter.emit({
+                      id: index,
+                      status: update as Lares4TemperatureStatus,
+                    });
+                    this._logger.log(log.temperatureStatus(this, Number(update.ID)));
+                  }
+                });
+              }
+              break;
+            default:
+              break;
             }
           }
         }
@@ -537,7 +544,7 @@ export class Lares4 {
 
   public offAll(event: string) {
     this._logger.log(`Removing all listeners for ${event}`);
-    this._ws.removeAllListeners(event)
+    this._ws.removeAllListeners(event);
   }
 
   public send(cmd: Lares4Command) {

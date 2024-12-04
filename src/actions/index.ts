@@ -1,10 +1,10 @@
-import type { Lares4ThermostatActModes, Lares4ThermostatSeasons } from "../index";
+import type { Lares4ThermostatActModes, Lares4ThermostatSeasons } from '../index';
 
-import { Lares4 } from "../lib/Lares4";
+import { Lares4 } from '../lib/Lares4';
 
-export function debounceWithLock<T extends (...args: any[]) => void>(
+export function debounceWithLock<T extends (...args: unknown[]) => void>(
   callback: T,
-  delay: number
+  delay: number,
 ): (lockDuration: number, ...args: Parameters<T>) => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastExecutionTime = 0;
@@ -29,11 +29,11 @@ export function debounceWithLock<T extends (...args: any[]) => void>(
 }
 
 export function switchOn(that: Lares4, id: number) {
-  that.setOutput(id, "ON");
+  that.setOutput(id, 'ON');
 }
 
 export function switchOff(that: Lares4, id: number) {
-  that.setOutput(id, "OFF");
+  that.setOutput(id, 'OFF');
 }
 
 export function dimmerTo(that: Lares4, id: number, level: number) {
@@ -41,15 +41,15 @@ export function dimmerTo(that: Lares4, id: number, level: number) {
 }
 
 export function rollUp(that: Lares4, id: number) {
-  that.setOutput(id, "UP");
+  that.setOutput(id, 'UP');
 }
 
 export function rollDown(that: Lares4, id: number) {
-  that.setOutput(id, "DOWN");
+  that.setOutput(id, 'DOWN');
 }
 
 export function rollStop(that: Lares4, id: number) {
-  that.setOutput(id, "STOP");
+  that.setOutput(id, 'STOP');
 }
 
 export function triggerScenario(that: Lares4, id: number) {
@@ -59,7 +59,7 @@ export function triggerScenario(that: Lares4, id: number) {
 export function setThermostatMode(
   that: Lares4,
   id: number,
-  mode: Lares4ThermostatActModes
+  mode: Lares4ThermostatActModes,
 ) {
   that.setThermostatMode(id, mode);
 }
@@ -67,7 +67,7 @@ export function setThermostatMode(
 export function setThermostatManualTimeout(
   that: Lares4,
   id: number,
-  timeout_time: string
+  timeout_time: string,
 ) {
   that.setThermostatManualEnding(id, timeout_time);
 }
@@ -75,7 +75,7 @@ export function setThermostatManualTimeout(
 export function setThermostatSeason(
   that: Lares4,
   id: number,
-  season: Lares4ThermostatSeasons
+  season: Lares4ThermostatSeasons,
 ) {
   that.setThermostatSeason(id, season);
 }
@@ -84,7 +84,7 @@ export function setThermostatTarget(
   that: Lares4,
   id: number,
   season: Lares4ThermostatSeasons,
-  target: number
+  target: number,
 ) {
   that.setThermostatTarget(id, season, target);
 }
@@ -92,7 +92,7 @@ export function setThermostatTarget(
 export function rollTo(
   that: Lares4,
   id: number,
-  target_position: number
+  target_position: number,
 ): void {
   that.setOutput(id, target_position);
 }

@@ -1,6 +1,6 @@
-import winston from "winston";
+import winston from 'winston';
 
-interface GenericLogger {
+export interface GenericLogger {
   info: (message: string) => (void | winston.LogMethod);
   error: (message: string) => (void | winston.LogMethod);
   warn: (message: string) => (void | winston.LogMethod);
@@ -29,8 +29,8 @@ export class Lares4Logger {
           new winston.transports.Console({
             format: winston.format.combine(
               winston.format.colorize(),
-              winston.format.simple()
-            )
+              winston.format.simple(),
+            ),
           }),
         ],
       }) as unknown as GenericLogger;

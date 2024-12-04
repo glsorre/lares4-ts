@@ -32,10 +32,10 @@ I followed the following principles developing the library:
 # Roadmap
 
 - [X] Read and write home automation basic entities;
-- [X] Update on the status of home automation basci entities;
+- [X] Update on the status of home automation basic entities;
 - [X] Autodiscover entities;
 - [X] Publish on github;
 - [ ] Publish on npmjs;
-- [ ] Example appplication;
+- [ ] Example application;
 - [ ] Full documentation;
 - [ ] Cover entire ksenia ecosystem.

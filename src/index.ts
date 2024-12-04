@@ -1,5 +1,5 @@
 export type Lares4Payload = {
-  [key: string]: Object | Array<any> | string | number;
+  [key: string]: object | Array<unknown> | string | number;
 }
 
 export type Lares4Command = {
@@ -76,13 +76,13 @@ export type Lares4TimeStatus = {
 
 export type Lares4SystemStatus = {
   ID: string;
-  INFO: Array<any>;
-  TAMPER: Array<any>;
-  TAMPER_MEM: Array<any>;
-  ALARM: Array<any>;
-  ALARM_MEM: Array<any>;
-  FAULT: Array<any>;
-  FAULT_MEM: Array<any>;
+  INFO: Array<unknown>;
+  TAMPER: Array<unknown>;
+  TAMPER_MEM: Array<unknown>;
+  ALARM: Array<unknown>;
+  ALARM_MEM: Array<unknown>;
+  FAULT: Array<unknown>;
+  FAULT_MEM: Array<unknown>;
   ARM: Lares4AlarmStatus;
   TEMP: Lares4TempStatus;
   TIME: Lares4TimeStatus;
@@ -229,7 +229,7 @@ export {
   setThermostatMode,
   setThermostatManualTimeout,
   setThermostatSeason,
-  setThermostatTarget
+  setThermostatTarget,
 } from './actions';
 
 export {
@@ -244,12 +244,12 @@ export {
   thermostatConfiguration,
   thermostatsConfiguration,
   scenario,
-  scenarios
+  scenarios,
 } from './log';
 
 import { Lares4Factory, Lares4 } from './lib/Lares4';
 
 export {
   Lares4Factory,
-  Lares4
-}
+  Lares4,
+};

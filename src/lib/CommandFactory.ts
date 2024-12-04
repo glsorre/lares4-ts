@@ -49,7 +49,7 @@ function crc(e: string): string {
     s += 1;
   }
 
-  return "0x" + r.toString(16).padStart(4, '0').toUpperCase();
+  return '0x' + r.toString(16).padStart(4, '0').toUpperCase();
 }
 
 export class Lares4CommandFactory {
@@ -60,7 +60,7 @@ export class Lares4CommandFactory {
 
   constructor(
     private readonly sender: string, 
-    private readonly pin: string
+    private readonly pin: string,
   ) {
     this._sender = sender;
     this._pin = pin;
@@ -95,7 +95,7 @@ export class Lares4CommandFactory {
       ...payload,
       ...(payload?.ID_LOGIN && { ID_LOGIN: this.get_login_id }),
       ...(payload?.PIN && { PIN: this.get_pin }),
-    }
+    };
   }
 
   public build_cmd(cmd: string, payload_type: string, payload: Lares4Command['PAYLOAD']): Lares4Command {
@@ -109,11 +109,11 @@ export class Lares4CommandFactory {
       PAYLOAD_TYPE: payload_type,
       PAYLOAD: this.build_payload(payload),
       TIMESTAMP: `${timestamp}`,
-      CRC_16: '0x0000'
+      CRC_16: '0x0000',
     };
 
     cmd_body.CRC_16 = crc(JSON.stringify(cmd_body));
 
-    return cmd_body
+    return cmd_body;
   }
 }

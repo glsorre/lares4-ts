@@ -1,24 +1,27 @@
 {
   "name": "lares4-ts",
   "version": "0.0.1",
-  "description": "A ts lib to connect and pilot KSenia Lares4 smart home pheriperals",
+  "description": "A ts lib to connect and pilot Ksenia Lares 4 smart home pheriperals",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "author": "Giuseppe Lucio Sorrentino",
   "license": "ISC",
-  "private": true,
+  "private": false,
   "engines": {
-    "node": ">=22.10.1"
+    "node": ">=18"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
     "@types/node": "^22.10.1",
     "@types/ws": "^8.5.13",
+    "eslint": "^9.16.0",
     "terser": "^5.36.0",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.17.0"
   },
   "dependencies": {
     "@mnasyrov/pubsub": "^0.2.4",
@@ -28,6 +31,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "watch": "tsup --watch"
+    "watch": "tsup --watch",
+    "lint": "eslint . --max-warnings=0",
+    "prepublish": "yarn lint && yarn build"
   }
 }

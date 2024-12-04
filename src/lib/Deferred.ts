@@ -1,7 +1,7 @@
 export class Deferred {
-  promise: Promise<any>;
+  promise: Promise<unknown>;
   reject: () => void = () => {};
-  resolve: (value: any) => void = () => {};
+  resolve: (value: unknown) => void = () => {};
 
   constructor() {
     this.promise = new Promise((resolve, reject) => {
