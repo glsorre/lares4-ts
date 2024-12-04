@@ -35,7 +35,7 @@ I followed the following principles developing the library:
 - [X] Update on the status of home automation basic entities;
 - [X] Autodiscover entities;
 - [X] Publish on github;
-- [ ] Publish on npmjs;
+- [X] Publish on npmjs;
 - [ ] Example application;
 - [ ] Full documentation;
 - [ ] Cover entire ksenia ecosystem.
