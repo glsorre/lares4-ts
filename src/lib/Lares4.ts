@@ -20,9 +20,10 @@ import {
   Lares4EmittedTemperatures
 } from '../index';
 
+import crypto from 'crypto';
+import { Agent } from 'https';
 import WebSocket from 'ws';
 import { Emitter } from '@mnasyrov/pubsub';
-
 
 import { Deferred } from './Deferred';
 import { Lares4CommandFactory } from './CommandFactory';
@@ -169,7 +170,14 @@ export class Lares4 {
     this._logger.log(`Connection to your Lares4 instance at ${ip}`); 
     this._ws = new WebSocket(`wss://${ip}/KseniaWsock`, ['KS_WSOCK'], {
       rejectUnauthorized: false,
-      protocol: 'wss:'
+      protocol: 'wss:',
+      agent: new Agent({
+        // for self signed you could also add
+        // rejectUnauthorized: false,
+
+        // allow legacy server
+        secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
+      }),
     }); 
   }
 
