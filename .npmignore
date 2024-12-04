@@ -1,0 +1,6 @@
+.github
+FUNDING.yml
+README.md
+eslint.config.js
+tsconfig.json
+tsup.config.ts
