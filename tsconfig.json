@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "DOM",
+      "ES2022"
+    ],
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "removeComments": true,
+    "rootDir": "src",
+    "outDir": "dist",
+  },
+  "include": [
+    "src"
+  ]
+}
