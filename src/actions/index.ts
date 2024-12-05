@@ -2,7 +2,7 @@ import type { Lares4ThermostatActModes, Lares4ThermostatSeasons } from '../index
 
 import { Lares4 } from '../lib/Lares4';
 
-export function debounceWithLock<T extends (...args: unknown[]) => void>(
+function debounceWithLock<T extends (...args: Parameters<T>) => void>(
   callback: T,
   delay: number,
 ): (lockDuration: number, ...args: Parameters<T>) => void {
@@ -96,3 +96,5 @@ export function rollTo(
 ): void {
   that.setOutput(id, target_position);
 }
+
+export const debouncedRollToWithLock = debounceWithLock(rollTo, 1000);

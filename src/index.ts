@@ -217,7 +217,6 @@ export type Lares4ExportedThermostat = {
 }
 
 export {
-  debounceWithLock,
   switchOn,
   switchOff,
   dimmerTo,
@@ -225,6 +224,7 @@ export {
   rollDown,
   rollStop,
   rollTo,
+  debouncedRollToWithLock,
   triggerScenario,
   setThermostatMode,
   setThermostatManualTimeout,
