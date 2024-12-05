@@ -411,39 +411,54 @@ export class Lares4 {
   }
 
   public async init() {
-    this.on('message', this.getLogin.bind(this));
-    const login_id = await this.requestLogin();
-    this._cmd_fatory.set_login_id = login_id;
-    this.offAll('message');
+    try {
+      this.on('message', this.getLogin.bind(this));
+      const login_id = await this.requestLogin();
+      this._cmd_fatory.set_login_id = login_id;
+      this.offAll('message');
+    } catch (error) {
+      this._logger.error('Failed to login to Lares4.');
+      throw error;
+    }
 
-    const init_deferreds = {
-      accessories: new Deferred(),
-      status: new Deferred(),
-      configuration: new Deferred(),
-    }; 
-    this.on('message', this.getInitState.bind(this, init_deferreds));
-    const [accessories, status, configuration] = await Promise.all([
-      this.requestAccessories(init_deferreds.accessories),
-      this.requestStatus(init_deferreds.status),
-      this.requestConfiguration(init_deferreds.configuration),
-    ]);
-    this.offAll('message');
+    try {
+      const init_deferreds = {
+        accessories: new Deferred(),
+        status: new Deferred(),
+        configuration: new Deferred(),
+      }; 
+      this.on('message', this.getInitState.bind(this, init_deferreds));
+      const [accessories, status, configuration] = await Promise.all([
+        this.requestAccessories(init_deferreds.accessories),
+        this.requestStatus(init_deferreds.status),
+        this.requestConfiguration(init_deferreds.configuration),
+      ]);
+      this.offAll('message');
 
-    this._accessories = accessories;
-    this._status = status;
-    this._configuration = configuration;
+      this._accessories = accessories;
+      this._status = status;
+      this._configuration = configuration;
 
-    this._logger.log(log.outputs(this, this._accessories.outputs));
-    this._logger.log(log.sensorsStatus(this, this._status.sensors));
-    this._logger.log(log.systemsStatus(this, this._status.systems));
-    this._logger.log(log.thermostatsStatus(this,this._configuration.thermostats));
-    this._logger.log(log.scenarios(this,this._configuration.scenarios));
-    this._logger.log(log.thermostatsConfiguration(this, this._configuration.thermostats));
+      this._logger.log(log.outputs(this, this._accessories.outputs));
+      this._logger.log(log.sensorsStatus(this, this._status.sensors));
+      this._logger.log(log.systemsStatus(this, this._status.systems));
+      this._logger.log(log.thermostatsStatus(this,this._configuration.thermostats));
+      this._logger.log(log.scenarios(this,this._configuration.scenarios));
+      this._logger.log(log.thermostatsConfiguration(this, this._configuration.thermostats));
+      
+      this._logger.log('Initialization completed');
+    } catch (error) {
+      this._logger.error('Failed to initialize Lares4');
+      throw error;
+    }
     
-    this._logger.log('Initialization completed');
-    
-    this.on('message', this.update.bind(this));
-    this._logger.log('Listening for updates...');
+    try {
+      this.on('message', this.update.bind(this));
+      this._logger.log('Listening for updates...');
+    } catch (error) {
+      this._logger.error('Failed to register listener for updates');
+      throw error;
+    }
   }
 
   public on(event: string, callback: (data: unknown) => void) {
