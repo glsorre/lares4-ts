@@ -3,7 +3,7 @@
   "version": "0.0.3",
   "description": "A ts lib to connect and pilot Ksenia Lares 4 smart home pheriperals",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "author": "Giuseppe Lucio Sorrentino",
