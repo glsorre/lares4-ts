@@ -33,6 +33,6 @@
     "build": "tsup",
     "watch": "tsup --watch",
     "lint": "eslint . --max-warnings=0",
-    "prepublish": "yarn lint && yarn build"
+    "prepublishOnly": "npm run lint && npm run build"
   }
 }
