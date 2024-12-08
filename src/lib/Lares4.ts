@@ -30,13 +30,15 @@ import { GenericLogger, Lares4Logger } from './Logger';
 
 import * as log from '../log';
 
-export class Lares4Factory {
-  static async createLares4(sender: string, ip: string, pin: string, external_logger?: GenericLogger) {
-    const lares4 = new Lares4(sender, ip, pin, external_logger);
-    await lares4.init();
-    return lares4;
-  }
-}
+const ACCESSORIES_ALLOWED = [
+  'LIGHT',
+  'ROLL',
+];
+
+const SCENARIOS_NOT_ALLOWED = [
+  'ARM',
+  'DISARM',
+];
 
 interface Lares4Accessories {
   outputs?: Lares4Output[];
@@ -53,6 +55,14 @@ interface Lares4Status {
 interface Lares4Configuration {
   thermostats?: Lares4ThermostatConfiguration[];
   scenarios?: Lares4Scenario[];
+}
+
+export class Lares4Factory {
+  static async createLares4(sender: string, ip: string, pin: string, external_logger?: GenericLogger) {
+    const lares4 = new Lares4(sender, ip, pin, external_logger);
+    await lares4.init();
+    return lares4;
+  }
 }
 
 export class Lares4 {
@@ -195,7 +205,7 @@ export class Lares4 {
     if (data.PAYLOAD?.OUTPUTS && data.PAYLOAD?.BUS_HAS) {
       this._logger.log('Received outputs and perhiperals');
       deferred.resolve({
-        outputs: data.PAYLOAD.OUTPUTS,
+        outputs: (data.PAYLOAD.OUTPUTS as Lares4Output[]).filter(output => ACCESSORIES_ALLOWED.includes(output.CAT)),
         perhiperals: data.PAYLOAD.BUS_HAS,
       });
     } else {
@@ -205,7 +215,12 @@ export class Lares4 {
   }
 
   private getStatus(deferred: Deferred, data: Lares4Command) {
-    if (data.PAYLOAD?.STATUS_OUTPUTS) {
+    if (
+      data.PAYLOAD?.STATUS_OUTPUTS && 
+      data.PAYLOAD?.STATUS_SYSTEM && 
+      data.PAYLOAD?.STATUS_BUS_HA_SENSORS && 
+      data.PAYLOAD?.STATUS_TEMPERATURES
+    ) {
       deferred.resolve({
         outputs: data.PAYLOAD.STATUS_OUTPUTS,
         systems: data.PAYLOAD.STATUS_SYSTEM,
@@ -219,10 +234,14 @@ export class Lares4 {
   }
 
   private getConfiguration(deferred: Deferred, data: Lares4Command) {
-    if (data.PAYLOAD?.CFG_THERMOSTATS && data.PAYLOAD?.SCENARIOS) {
+    if (
+      data.PAYLOAD?.CFG_THERMOSTATS && 
+      data.PAYLOAD?.SCENARIOS && 
+      data.PAYLOAD?.PRG_OUTPUTS
+    ) {
       deferred.resolve({
         thermostats: data.PAYLOAD.CFG_THERMOSTATS,
-        scenarios: data.PAYLOAD.SCENARIOS,
+        scenarios: (data.PAYLOAD.SCENARIOS as Lares4Scenario[]).filter(scenario => !SCENARIOS_NOT_ALLOWED.includes(scenario.CAT)),
         outputs: data.PAYLOAD.PRG_OUTPUTS,
       });
     } else {
