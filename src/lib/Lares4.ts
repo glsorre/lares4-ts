@@ -236,13 +236,11 @@ export class Lares4 {
   private getConfiguration(deferred: Deferred, data: Lares4Command) {
     if (
       data.PAYLOAD?.CFG_THERMOSTATS && 
-      data.PAYLOAD?.SCENARIOS && 
-      data.PAYLOAD?.PRG_OUTPUTS
+      data.PAYLOAD?.SCENARIOS
     ) {
       deferred.resolve({
         thermostats: data.PAYLOAD.CFG_THERMOSTATS,
         scenarios: (data.PAYLOAD.SCENARIOS as Lares4Scenario[]).filter(scenario => !SCENARIOS_NOT_ALLOWED.includes(scenario.CAT)),
-        outputs: data.PAYLOAD.PRG_OUTPUTS,
       });
     } else {
       this._logger.error('Failed to get thermostats configuration and scenarios');
@@ -375,7 +373,7 @@ export class Lares4 {
       {
         ID_LOGIN: 'true',
         ID_READ: '1',
-        TYPES: ['CFG_THERMOSTATS', 'SCENARIOS', 'PRG_OUTPUTS'],
+        TYPES: ['CFG_THERMOSTATS', 'SCENARIOS'],
       },
     );
 
