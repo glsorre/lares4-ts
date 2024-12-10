@@ -39,3 +39,7 @@ I followed the following principles developing the library:
 - [ ] Example application;
 - [ ] Full documentation;
 - [ ] Cover entire ksenia ecosystem.
+
+# Disclaimer
+
+This project and its author are not affiliated in any way with Ksenia Security S.p.A. or other entities connected with it.
