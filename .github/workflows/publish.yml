@@ -14,14 +14,9 @@ jobs:
           repository: glsorre/lares4-ts
           preRelease: ${{ contains(github.event.release.tag_name, 'beta') }}
           tag: ${{ github.event.release.tag_name }}
-          fileName: relase.zip
           token: ${{ secrets.GH_TOKEN }}
-
-      - name: Unzip release
-        run: unzip release.zip -d release
-
-      - name: Move to release directory
-        run: cd release
+          zipBall: true
+          extract: true
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
