@@ -12,6 +12,7 @@ jobs:
         uses: robinraju/release-downloader@v1
         with:
           repository: glsorre/lares4-ts
+          preRelease: ${{ contains(github.event.release.tag_name, 'beta') }}
           tag: ${{ github.event.release.tag_name }}
           fileName: relase.zip
 
