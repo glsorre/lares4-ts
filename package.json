@@ -1,6 +1,6 @@
 {
   "name": "lares4-ts",
-  "version": "0.0.7-beta.15",
+  "version": "0.0.7-beta.16",
   "description": "A ts lib to connect and pilot Ksenia Lares 4 smart home pheriperals",
   "type": "module",
   "main": "./dist/index.js",
