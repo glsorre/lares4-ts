@@ -18,6 +18,9 @@ jobs:
           zipBall: true
           extract: true
 
+      - name: Change directory
+        run: cd lares4-ts
+
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
