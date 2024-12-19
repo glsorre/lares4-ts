@@ -56,7 +56,7 @@ jobs:
       - name: Add github release if has tag
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           body: ${{ github.event.head_commit.message }}
     

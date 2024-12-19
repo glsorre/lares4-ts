@@ -1,0 +1,46 @@
+name: Publish to NPM
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: owner/repo
+          tag: ${{ github.event.release.tag_name }}
+          fileName: relase.zip
+
+      - name: Unzip release
+        run: unzip release.zip -d release
+
+      - name: Move to release directory
+        run: cd release
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: v22.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the project
+        run: npm run build
+
+      - name: Publish package on NPM
+        if: ${{ contains(github.event.release.ref_name, 'beta') }}
+        run: npm publish --beta
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Publish package on NPM
+        if: ${{ contains(github.event.release.ref_name, 'beta') }}
+        run: npm publish --beta
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
