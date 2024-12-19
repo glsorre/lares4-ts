@@ -16,10 +16,9 @@ jobs:
           tag: ${{ github.event.release.tag_name }}
           token: ${{ secrets.GH_TOKEN }}
           zipBall: true
-          extract: true
 
-      - name: list recusively excluding node_modules
-        run: ls -la
+      - name: Extract release in working directory
+        run: unzip -o lares4-ts-${{ github.event.release.tag_name }} -d /home/runner/work/lares4-ts/lares4-ts
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
@@ -31,19 +30,16 @@ jobs:
         run: npm ci
 
       - name: Build the project
-        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm run build
 
       - name: Publish package on NPM
         if: ${{ !contains(github.event.release.ref_name, 'beta') }}
-        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: Publish beta package on NPM
         if: ${{ contains(github.event.release.ref_name, 'beta') }}
-        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm publish --beta
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
