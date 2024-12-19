@@ -15,6 +15,7 @@ jobs:
           preRelease: ${{ contains(github.event.release.tag_name, 'beta') }}
           tag: tag/${{ github.event.release.tag_name }}
           fileName: relase.zip
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Unzip release
         run: unzip release.zip -d release
