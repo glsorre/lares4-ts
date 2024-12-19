@@ -154,14 +154,20 @@ export class Lares4 {
     return this._status.sensors
       ?.filter(sensor => Object.hasOwn(sensor, 'DOMUS'))
       ?.map((sensor, index) => {
-        const configuration_id = this._status.temperatures?.findIndex(thermostat => thermostat.ID === sensor.ID) ?? -1;
-        const configuration = this._status.temperatures?.find(thermostat => thermostat.ID === sensor.ID);
+        const temperature_id = this._status.temperatures?.findIndex(thermostat => thermostat.ID === sensor.ID) ?? -1;
+        const temperature = this._status.temperatures?.find(thermostat => thermostat.ID === sensor.ID);
+        const configuration_id = this._configuration.thermostats?.findIndex(thermostat => thermostat.ID === sensor.ID) ?? -1;
+        const configuration = this._configuration.thermostats?.find(thermostat => thermostat.ID === sensor.ID);
         return {
           sensor: {
             id: index,
             details: sensor,
           },
           temperature: {
+            id: temperature_id,
+            details: temperature,
+          },
+          configuration: {
             id: configuration_id,
             details: configuration,
           },
