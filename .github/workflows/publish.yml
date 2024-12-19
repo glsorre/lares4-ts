@@ -19,7 +19,7 @@ jobs:
           extract: true
 
       - name: Change directory
-        run: cd /home/runner/work/lares4-ts/lares4-ts
+        run: cd /home/runner/work/lares4-ts/lares4-ts/lares4-ts-${{ github.event.release.tag_name }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
