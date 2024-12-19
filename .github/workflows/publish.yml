@@ -18,7 +18,7 @@ jobs:
           zipBall: true
 
       - name: Extract release in working directory
-        run: tar zxvf lares4-ts-${{ github.event.release.tag_name }}.zip -d --strip-components=1 
+        run: tar zxvf lares4-ts-${{ github.event.release.tag_name }}.zip --strip-components=1 
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
