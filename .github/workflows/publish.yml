@@ -18,9 +18,6 @@ jobs:
           zipBall: true
           extract: true
 
-      - name: Change directory
-        run: cd /home/runner/work/lares4-ts/lares4-ts/lares4-ts-${{ github.event.release.tag_name }}
-
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -28,19 +25,23 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
+        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm ci
 
       - name: Build the project
+        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm run build
 
       - name: Publish package on NPM
         if: ${{ !contains(github.event.release.ref_name, 'beta') }}
+        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: Publish beta package on NPM
         if: ${{ contains(github.event.release.ref_name, 'beta') }}
+        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm publish --beta
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
