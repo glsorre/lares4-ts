@@ -11,7 +11,7 @@ jobs:
       - name: Download release
         uses: robinraju/release-downloader@v1
         with:
-          repository: owner/repo
+          repository: glsorre/lares4-ts
           tag: ${{ github.event.release.tag_name }}
           fileName: relase.zip
 
