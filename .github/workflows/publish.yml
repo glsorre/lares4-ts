@@ -18,6 +18,9 @@ jobs:
           zipBall: true
           extract: true
 
+      - name: list recusively excluding node_modules
+        run: ls -la
+
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
