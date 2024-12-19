@@ -28,7 +28,6 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        working-directory: /home/runner/work/lares4-ts/lares4-ts
         run: npm ci
 
       - name: Build the project
