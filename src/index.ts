@@ -210,9 +210,9 @@ export type Lares4ExportedThermostat = {
     id: number;
     details: Lares4SensorStatus;
   },
-  configuration: {
+  temperature: {
     id: number;
-    details: Lares4ThermostatConfiguration;
+    details: Lares4TemperatureStatus;
   }
 }
 
