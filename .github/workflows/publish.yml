@@ -36,10 +36,10 @@ jobs:
         if: ${{ !contains(github.event.release.ref_name, 'beta') }}
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
       
       - name: Publish beta package on NPM
         if: ${{ contains(github.event.release.ref_name, 'beta') }}
         run: npm publish --beta
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
