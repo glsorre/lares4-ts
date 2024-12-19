@@ -4,3 +4,4 @@ README.md
 eslint.config.js
 tsconfig.json
 tsup.config.ts
+*.tar.gz
