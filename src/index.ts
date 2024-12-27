@@ -45,8 +45,8 @@ export type Lares4TemperatureStatus = {
   ID: string,
   TEMP: string,
   THERM: {
-    ACT_SEA: string,
-    ACT_MODEL: string,
+    ACT_SEA: Lares4ThermostatSeasons,
+    ACT_MODEL: Lares4ThermostatActModes,
     ACT_TOF: string,
     TEMP_THR: {
       T: string,
