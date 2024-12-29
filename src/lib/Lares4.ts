@@ -496,8 +496,6 @@ export class Lares4 {
   }
 
   private update(data: string) {
-    this._logger.log('Got update:');
-    console.log(data);
     const updateData = JSON.parse(data) as Lares4UpdateCommand;
     if (updateData?.PAYLOAD_TYPE === 'CHANGES') {
       for (const receiver of Object.keys(updateData.PAYLOAD)) {
