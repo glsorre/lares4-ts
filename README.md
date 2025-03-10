@@ -36,7 +36,7 @@ I followed the following principles developing the library:
 - [X] Autodiscover entities;
 - [X] Publish on github;
 - [X] Publish on npmjs;
-- [-] Example application;
+- [X] Example application;
 - [ ] Full documentation;
 - [ ] Cover entire ksenia ecosystem.
 

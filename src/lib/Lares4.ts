@@ -141,6 +141,15 @@ export class Lares4 {
       ?.filter(output => output.details.CAT === 'ROLL') ?? [];
   }
 
+  get gates(): Lares4ExportedOutput[] {
+    return this._accessories.outputs
+      ?.map((output, index) => ({
+        id: index,
+        details: output,
+      }))
+      ?.filter(output => output.details.CAT === 'GATE') ?? [];
+  }
+
   get scenarios(): Lares4ExportedScenario[] {
     return this._configuration.scenarios
       ?.map((scenario, index) => ({
@@ -188,10 +197,6 @@ export class Lares4 {
       rejectUnauthorized: false,
       protocol: 'wss:',
       agent: new Agent({
-        // for self signed you could also add
-        // rejectUnauthorized: false,
-
-        // allow legacy server
         secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
       }),
     }); 
