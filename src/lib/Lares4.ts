@@ -33,6 +33,7 @@ import * as log from '../log';
 const ACCESSORIES_ALLOWED = [
   'LIGHT',
   'ROLL',
+  'GATE',
 ];
 
 const SCENARIOS_NOT_ALLOWED = [
