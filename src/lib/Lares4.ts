@@ -194,9 +194,11 @@ export class Lares4 {
     this._cmd_fatory = new Lares4CommandFactory(sender, pin);
     this._logger = new Lares4Logger(external_logger);
     this._logger.log(`Connection to your Lares4 instance at ${ip}`); 
-    this._ws = new WebSocket(`wss://${ip}/KseniaWsock`, ['KS_WSOCK'], {
+    const isPort80 = ip.includes(':80') || ip.endsWith(':80');
+    const protocol = isPort80 ? 'ws' : 'wss';
+    this._ws = new WebSocket(`${protocol}://${ip}/KseniaWsock`, ['KS_WSOCK'], {
       rejectUnauthorized: false,
-      protocol: 'wss:',
+      protocol,
       agent: new Agent({
         secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
       }),
