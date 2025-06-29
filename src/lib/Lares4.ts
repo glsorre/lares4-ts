@@ -59,8 +59,8 @@ interface Lares4Configuration {
 }
 
 export class Lares4Factory {
-  static async createLares4(sender: string, ip: string, pin: string, external_logger?: GenericLogger) {
-    const lares4 = new Lares4(sender, ip, pin, external_logger);
+  static async createLares4(sender: string, ip: string, pin: string, wss: boolean = true, external_logger?: GenericLogger) {
+    const lares4 = new Lares4(sender, ip, pin, wss, external_logger);
     await lares4.init();
     return lares4;
   }
@@ -189,12 +189,13 @@ export class Lares4 {
     sender: string,
     ip: string,
     pin: string,
+    wss: boolean = true,
     external_logger?: GenericLogger,
   ) {
     this._cmd_fatory = new Lares4CommandFactory(sender, pin);
     this._logger = new Lares4Logger(external_logger);
     this._logger.log(`Connection to your Lares4 instance at ${ip}`); 
-    this._ws = new WebSocket(`wss://${ip}/KseniaWsock`, ['KS_WSOCK'], {
+    this._ws = new WebSocket(`${wss ? 'wss' : 'ws'}://${ip}/KseniaWsock`, ['KS_WSOCK'], {
       rejectUnauthorized: false,
       protocol: 'wss:',
       agent: new Agent({
