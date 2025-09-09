@@ -15,5 +15,5 @@
   },
   "include": [
     "src"
-  ]
+, "tests/lib/Lares4.test.ts"  ]
 }

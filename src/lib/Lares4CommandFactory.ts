@@ -1,4 +1,4 @@
-import type { Lares4Command } from '../index';
+import type { Lares4Command } from '../types';
 
 function encode(e: string): number[] {
   const t: number[] = [];
