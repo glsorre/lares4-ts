@@ -1,4 +1,4 @@
-import type { Lares4Command } from '../types';
+import type { Lares4Command } from '../../types';
 
 function encode(e: string): number[] {
   const t: number[] = [];
@@ -59,8 +59,8 @@ export class Lares4CommandFactory {
   private _sender: string = '';
 
   constructor(
-    private readonly sender: string, 
-    private readonly pin: string,
+    sender: string,
+    pin: string,
   ) {
     this._sender = sender;
     this._pin = pin;
@@ -70,7 +70,7 @@ export class Lares4CommandFactory {
     return this._pin;
   }
 
-  public get get_sender() {
+  public get sender() {
     return this._sender;
   }
 

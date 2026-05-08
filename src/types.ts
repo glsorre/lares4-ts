@@ -5,8 +5,14 @@ export interface Lares4Command {
   ID: string;
   TIMESTAMP: string;
   PAYLOAD_TYPE: string;
-  PAYLOAD: any;
+  PAYLOAD: Record<string, unknown>;
   CRC_16: string;
+}
+
+export interface Lares4ErrorLike {
+  name: string;
+  code?: string;
+  message: string;
 }
 
 export enum Lares4DeviceTypes {
@@ -29,6 +35,12 @@ export enum Lares4CoverStates {
   OPENING = 'opening',
   CLOSING = 'closing',
   STOPPED = 'stopped',
+}
+
+export function mapCoverState(raw: string): Lares4CoverStates {
+  return (Object.values(Lares4CoverStates) as string[]).includes(raw)
+    ? (raw as Lares4CoverStates)
+    : Lares4CoverStates.STOPPED;
 }
 
 export interface Lares4Device {
@@ -76,6 +88,18 @@ export enum Lares4ThermostatSeasons {
   summer = 'SUM'
 }
 
+export function mapActMode(raw: string): Lares4ThermostatActModes {
+  return (Object.values(Lares4ThermostatActModes) as string[]).includes(raw)
+    ? (raw as Lares4ThermostatActModes)
+    : Lares4ThermostatActModes.off;
+}
+
+export function mapSeason(raw: string): Lares4ThermostatSeasons {
+  return (Object.values(Lares4ThermostatSeasons) as string[]).includes(raw)
+    ? (raw as Lares4ThermostatSeasons)
+    : Lares4ThermostatSeasons.winter;
+}
+
 export interface Lares4Sensors extends Lares4Device {
   type: Lares4DeviceTypes.SENSOR;
   sensors: Lares4Sensor[];
@@ -110,6 +134,22 @@ export enum Lares4OutputCategories {
   ROLL = 'roll',
   GATE = 'gate',
 }
+
+export enum LogLevelEnum {
+  INFO = 'info',
+  ERROR = 'error',
+  WARN = 'warn',
+  DEBUG = 'debug',
+}
+
+export interface GenericLogger {
+  info: (message: string) => void;
+  error: (message: string) => void;
+  warn: (message: string) => void;
+  debug: (message: string) => void;
+}
+
+// Internal protocol/data-transfer models. Keep these out of root exports.
 
 export interface Output {
   ID: string;
@@ -182,6 +222,27 @@ export interface StatusTemperatures {
   }
 }
 
+export interface ProgramThermostat {
+  ID: string;
+  DES?: string;
+  PERIPH?: {
+    PID?: string;
+    TYP?: string;
+  };
+  HEATING_OUT?: string;
+  COOLING_OUT?: string;
+  [key: string]: unknown;
+}
+
+export interface SystemStatus {
+  ID: string;
+  TEMP?: {
+    IN?: string;
+    OUT?: string;
+  };
+  [key: string]: unknown;
+}
+
 export interface SensorLinkStatus {
   SN: string;
   BUS: string;
@@ -231,9 +292,11 @@ export enum ThermostatSeasons {
   SUM = 'SUM'
 }
 
+// Internal socket event contract used by transport/client internals.
+
 export interface Lares4MessagePayload {
   RESULT: string;
-  PAYLOAD: any
+  [key: string]: unknown;
 }
 
 export interface Lares4Message {
@@ -242,13 +305,17 @@ export interface Lares4Message {
   CMD: string;
   ID: string;
   PAYLOAD_TYPE: string;
-  PAYLOAD: Lares4MessagePayload;
+  PAYLOAD: Record<string, unknown>;
+  TIMESTAMP: string;
+  CRC_16: string;
 }
 
 export interface Lares4SocketOptions {
   port?: number;
   heartbeat_interval_ms?: number;
   reconnect_delay_ms?: number;
+  login_timeout_ms?: number;
+  command_timeout_ms?: number;
 }
 
 export enum Lares4SocketEventType{
@@ -261,5 +328,14 @@ export enum Lares4SocketEventType{
 
 export interface Lares4SocketEventEmitted {
   type: Lares4SocketEventType;
-  message?: string;
+  message?: string | Record<string, unknown>;
 }
+
+export type Lares4DeviceUpdateEvent =
+  | { type: Lares4DeviceTypes.LIGHT; device: Lares4Light }
+  | { type: Lares4DeviceTypes.COVER; device: Lares4Cover }
+  | { type: Lares4DeviceTypes.GATE; device: Lares4Gate }
+  | { type: Lares4DeviceTypes.SENSOR; device: Lares4Sensors }
+  | { type: Lares4DeviceTypes.THERMOSTAT; device: Lares4Thermostat }
+  | { type: Lares4DeviceTypes.ZONE; device: Lares4Zone }
+  | { type: Lares4DeviceTypes.SCENARIO; device: Lares4Scenario };
