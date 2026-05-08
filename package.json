@@ -48,6 +48,7 @@
     "test:run": "node --import tsx --test \"tests/**/*.test.ts\"",
     "test:coverage": "node --import tsx --test --experimental-test-coverage \"tests/**/*.test.ts\"",
     "test": "npm run test:build && npm run test:run",
-    "prepublishOnly": "npm run lint && npm run build"
+    "prepublishOnly": "npm run lint && npm run build",
+    "example": "tsx examples/list-and-watch.ts"
   }
 }
