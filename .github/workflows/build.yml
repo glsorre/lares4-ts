@@ -11,11 +11,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,25 +28,39 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Test the project (node:test)
+        run: npm test
 
       - name: Lint the project
         run: npm run lint
 
+      - name: Check filename convention
+        run: npm run naming:check
+
+      - name: Check module boundaries
+        run: npm run boundaries:check
+
       - name: Build the project
         run: npm run build
+
+      - name: Check public API surface snapshot
+        run: npm run api:check
 
   release:
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     needs: build
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 22
+      - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: v22.x
+          node-version: v24.x
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies

@@ -1,30 +1,28 @@
 import winston from 'winston';
+import { LogLevelEnum, type GenericLogger } from '../../types';
 
-export interface GenericLogger {
-  info: (message: string) => (void | winston.LogMethod);
-  error: (message: string) => (void | winston.LogMethod);
-  warn: (message: string) => (void | winston.LogMethod);
-  debug: (message: string) => (void | winston.LogMethod);
-}
+export { LogLevelEnum, type GenericLogger };
 
 export class Lares4Logger {
   private _logger: GenericLogger;
-  private _level: string = process.env.LOG_LEVEL || 'info';
+  private _level: string;
 
-  public get get_level(): string {
+  public get level(): string {
     return this._level;
   }
 
-  public set set_level(level: string) {
+  public set level(level: string) {
     this._level = level;
+    this.applyLoggerLevel(level);
   }
 
-  constructor(externalLogger?: GenericLogger) {
+  constructor(externalLogger?: GenericLogger, level: LogLevelEnum = LogLevelEnum.INFO) {
+    this._level = level;
     if (externalLogger) {
       this._logger = externalLogger as unknown as GenericLogger;
     } else {
       this._logger = winston.createLogger({
-        level: this._level,
+        level,
         transports: [
           new winston.transports.Console({
             format: winston.format.combine(
@@ -35,9 +33,17 @@ export class Lares4Logger {
         ],
       }) as unknown as GenericLogger;
     }
+    this.applyLoggerLevel(level);
   }
 
-  public log(message: string): void {
+  private applyLoggerLevel(level: string): void {
+    const loggerWithLevel = this._logger as GenericLogger & { level?: string };
+    if ('level' in loggerWithLevel) {
+      loggerWithLevel.level = level;
+    }
+  }
+
+  public info(message: string): void {
     this._logger.info(message);
   }
 

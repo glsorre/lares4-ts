@@ -3,14 +3,22 @@
   "version": "0.0.9-beta.4",
   "description": "A ts lib to connect and pilot Ksenia Lares 4 smart home pheriperals",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
+  },
   "author": "Giuseppe Lucio Sorrentino",
   "license": "ISC",
   "private": false,
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
@@ -18,13 +26,12 @@
     "@types/ws": "^8.5.13",
     "eslint": "^9.16.0",
     "terser": "^5.36.0",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.17.0"
   },
   "dependencies": {
-    "@mnasyrov/pubsub": "^0.2.4",
     "bufferutil": "^4.0.8",
     "winston": "^3.17.0",
     "ws": "^8.18.0"
@@ -33,6 +40,15 @@
     "build": "tsup",
     "watch": "tsup --watch",
     "lint": "eslint . --max-warnings=0",
-    "prepublishOnly": "npm run lint && npm run build"
+    "naming:check": "node ./scripts/check-filenames.mjs",
+    "boundaries:check": "node ./scripts/check-module-boundaries.mjs",
+    "api:check": "node ./scripts/check-api-surface.mjs",
+    "api:update": "node ./scripts/check-api-surface.mjs --update",
+    "test:build": "tsc -p tsconfig.test.json --noEmit",
+    "test:run": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage \"tests/**/*.test.ts\"",
+    "test": "npm run test:build && npm run test:run",
+    "prepublishOnly": "npm run lint && npm run build",
+    "example": "tsx examples/list-and-watch.ts"
   }
 }
