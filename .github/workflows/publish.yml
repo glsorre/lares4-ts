@@ -4,6 +4,10 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,14 +38,15 @@ jobs:
       - name: Build the project
         run: npm run build
 
+      - name: Verify npm trusted publishing identity
+        run: |
+          npm whoami
+          npm view lares4-ts name version --json
+
       - name: Publish package on NPM
         if: ${{ !contains(github.event.release.tag_name, 'beta') }}
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
 
       - name: Publish beta package on NPM
         if: ${{ contains(github.event.release.tag_name, 'beta') }}
         run: npm publish --tag beta
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
