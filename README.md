@@ -2,12 +2,10 @@
 
 TypeScript library for connecting to Ksenia Lares 4 and managing home automation entities (lights, covers, sensors, thermostats, zones, scenarios, gates).
 
-Status: beta (`0.x`), actively evolving.
-
 ## Install
 
 Requirements:
-- Node.js `>=20`
+- Node.js `>=22`
 
 Install:
 
@@ -79,12 +77,6 @@ npm test
 Other useful checks:
 - `npm run naming:check`
 - `npm run api:check`
-
-## Limitations and Roadmap
-
-- Beta API (`0.x`): breaking changes can still happen between minor beta versions.
-- Full end-user documentation is still in progress.
-- Ongoing work continues toward wider coverage of the Ksenia ecosystem.
 
 ## Credits
 
