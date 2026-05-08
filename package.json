@@ -16,6 +16,10 @@
   },
   "author": "Giuseppe Lucio Sorrentino",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glsorre/lares4-ts"
+  },
   "private": false,
   "engines": {
     "node": ">=22"
