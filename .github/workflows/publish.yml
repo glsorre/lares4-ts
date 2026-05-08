@@ -40,12 +40,8 @@ jobs:
 
       - name: Publish package on NPM
         if: ${{ !contains(github.event.release.tag_name, 'beta') }}
-        env:
-          NODE_AUTH_TOKEN: ''
         run: npm publish --provenance
 
       - name: Publish beta package on NPM
         if: ${{ contains(github.event.release.tag_name, 'beta') }}
-        env:
-          NODE_AUTH_TOKEN: ''
         run: npm publish --tag beta --provenance
