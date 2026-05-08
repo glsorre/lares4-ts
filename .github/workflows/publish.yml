@@ -38,11 +38,6 @@ jobs:
       - name: Build the project
         run: npm run build
 
-      - name: Verify npm trusted publishing identity
-        run: |
-          npm whoami
-          npm view lares4-ts name version --json
-
       - name: Publish package on NPM
         if: ${{ !contains(github.event.release.tag_name, 'beta') }}
         run: npm publish
