@@ -59,22 +59,6 @@ Public types/enums (from package root):
 Unsupported API surface:
 - Deep imports into internal paths (`dist/lib/...`, `src/...`) are not public contract and may change without notice.
 
-## Reliability Behavior
-
-- Login waits for panel response and fails startup on login timeout.
-- Heartbeat uses websocket ping/pong to detect stale links.
-- Reconnect uses capped exponential backoff with jitter.
-- Command flow supports ACK/timeout semantics and surfaces typed timeout errors.
-
-## Security Output Partition
-
-- Non-security auxiliary outputs remain mapped as `switches`.
-- Alarm/security-related auxiliary outputs are exposed separately as `securityOutputs`.
-- This keeps switch ergonomics stable while avoiding accidental mixing of security actuators with generic auxiliaries.
-
-Debug console note:
-- `state security` prints the current `securityOutputs` snapshot.
-
 ## Development
 
 ```bash
