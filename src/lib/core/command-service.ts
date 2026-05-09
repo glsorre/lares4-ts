@@ -37,6 +37,7 @@ export class CommandService {
     if (!this.state.idLogin) {
       throw new Lares4ConnectionError('ID_LOGIN not available');
     }
+    await this.sendKseniaCommand('READ', 'STATUS_SYSTEM', { ID_LOGIN: 'true' });
     await this.sendKseniaCommand('READ', 'CFG_THERMOSTATS', { ID_LOGIN: 'true', ID_READ: 'ALL', ID_ITEMS_RANGE: ['ALL', 'ALL'] });
     await this.sendKseniaCommand('READ', 'PRG_THERMOSTATS', { ID_LOGIN: 'true', ID_READ: 'ALL', ID_ITEMS_RANGE: ['ALL', 'ALL'] });
   }
@@ -106,8 +107,8 @@ export class CommandService {
       return payload;
     }
 
-    const mappedId = this.state.thermostatProgramIdByOutputId.get(rawId)
-      ?? this.state.thermostatCommandIdByOutputId.get(rawId)
+    const mappedId = this.normalizeThermostatTargetId(this.state.thermostatProgramIdByOutputId.get(rawId))
+      ?? this.normalizeThermostatTargetId(this.state.thermostatCommandIdByOutputId.get(rawId))
       ?? rawId;
 
     this.state.thermostatCommandIdByOutputId.set(rawId, mappedId);
@@ -118,5 +119,16 @@ export class CommandService {
     const cloned = { ...payload, CFG_THERMOSTATS: [...payload.CFG_THERMOSTATS] } as Lares4Command['PAYLOAD'];
     cloned.CFG_THERMOSTATS[0] = { ...(cloned.CFG_THERMOSTATS[0] as Record<string, unknown>), ID: mappedId };
     return cloned;
+  }
+
+  private normalizeThermostatTargetId(value: string | undefined): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const normalized = value.trim();
+    if (!normalized || normalized === 'NU' || normalized === 'NULL' || normalized === 'N/A') {
+      return undefined;
+    }
+    return normalized;
   }
 }

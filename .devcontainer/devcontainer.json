@@ -3,7 +3,9 @@
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "workspaceFolder": "/workspace/lares4-ts",
   "features": {
-    "ghcr.io/devcontainers-community/npm-features/typescript:1": {}
+    "ghcr.io/devcontainers/features/node:2": {},
+    "ghcr.io/devcontainers-community/npm-features/typescript:1": {},
+    "ghcr.io/devcontainers-extra/features/claude-code:2": {}
   },
   "customizations": {
     "vscode": {

@@ -10,8 +10,19 @@ export type {
   Lares4Zone,
   Lares4Scenario,
   Lares4Gate,
+  Lares4Switch,
   Lares4SocketOptions,
   Lares4DeviceUpdateEvent,
+  Lares4DeviceDiscoveredEvent,
+  Lares4SystemTemperature,
+  Lares4SystemStatusSnapshot,
+  Lares4SystemStatusEvent,
+  StatusSystem,
+  RawStatusOutputsPayload,
+  RawStatusZonesPayload,
+  RawStatusBusSensorsPayload,
+  RawStatusTemperaturesPayload,
+  RawStatusSystemPayload,
 } from './types';
 
 export {

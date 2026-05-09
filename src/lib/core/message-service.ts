@@ -68,8 +68,8 @@ export class MessageService {
           this.state.domusSensorIdByThermostatProgramId.set(prgId, String(periph.PID));
         }
         for (const outputKey of ['HEATING_OUT', 'COOLING_OUT']) {
-          const outputId = entry[outputKey];
-          if (typeof outputId === 'string' && outputId && outputId !== 'NU') {
+          const outputId = this.normalizeThermostatId(entry[outputKey]);
+          if (outputId) {
             this.state.thermostatProgramIdByOutputId.set(outputId, prgId);
           }
         }
@@ -99,5 +99,20 @@ export class MessageService {
       type: Lares4SocketEventType.CHANGE,
       message: message.PAYLOAD,
     });
+  }
+
+  public handleCommandResponse(message: Lares4Message): void {
+    this.messages.emit({
+      type: Lares4SocketEventType.RESPONSE,
+      message,
+    });
+  }
+
+  private normalizeThermostatId(value: unknown): string | undefined {
+    const normalized = String(value ?? '').trim();
+    if (!normalized || normalized === 'NU' || normalized === 'NULL' || normalized === 'N/A') {
+      return undefined;
+    }
+    return normalized;
   }
 }

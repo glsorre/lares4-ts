@@ -88,8 +88,9 @@ describe('Lares4CoreClient', () => {
 
     (client as unknown as { handleRawMessage: (raw: string) => void }).handleRawMessage('{invalid');
 
-    assert.equal(events[0].type, Lares4SocketEventType.ERROR);
-    assert.match(String(events[0].message ?? ''), /Unexpected token|Expected property name/);
+    const errorEvent = events.find((event) => event.type === Lares4SocketEventType.ERROR);
+    assert.ok(errorEvent);
+    assert.match(String(errorEvent.message ?? ''), /Unexpected token|Expected property name/);
   });
 
   it('keeps sender getter aligned with command service sender', () => {

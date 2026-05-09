@@ -14,6 +14,7 @@ type GenericLogger
 type Lares4Command
 type Lares4Cover
 type Lares4Device
+type Lares4DeviceDiscoveredEvent
 type Lares4DeviceUpdateEvent
 type Lares4ErrorLike
 type Lares4Gate
@@ -24,5 +25,15 @@ type Lares4Scenario
 type Lares4Sensor
 type Lares4Sensors
 type Lares4SocketOptions
+type Lares4Switch
+type Lares4SystemStatusEvent
+type Lares4SystemStatusSnapshot
+type Lares4SystemTemperature
 type Lares4Thermostat
 type Lares4Zone
+type RawStatusBusSensorsPayload
+type RawStatusOutputsPayload
+type RawStatusSystemPayload
+type RawStatusTemperaturesPayload
+type RawStatusZonesPayload
+type StatusSystem

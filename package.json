@@ -49,10 +49,11 @@
     "api:check": "node ./scripts/check-api-surface.mjs",
     "api:update": "node ./scripts/check-api-surface.mjs --update",
     "test:build": "tsc -p tsconfig.test.json --noEmit",
-    "test:run": "node --import tsx --test \"tests/**/*.test.ts\"",
-    "test:coverage": "node --import tsx --test --experimental-test-coverage \"tests/**/*.test.ts\"",
+    "test:run": "tsx --test tests/*.test.ts tests/lib/core/*.test.ts tests/lib/public/*.test.ts tests/lib/internal/*.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage tests/*.test.ts tests/lib/core/*.test.ts tests/lib/public/*.test.ts tests/lib/internal/*.test.ts",
     "test": "npm run test:build && npm run test:run",
     "prepublishOnly": "npm run lint && npm run build",
-    "example": "tsx examples/list-and-watch.ts"
+    "example": "tsx examples/list-and-watch.ts",
+    "debug:console": "tsx examples/debug-console-tui.ts"
   }
 }

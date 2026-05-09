@@ -3,11 +3,11 @@ import {
   Lares4SocketEventEmitted,
   Lares4SocketEventType,
   Lares4DeviceTypes,
-  Lares4OutputCategories,
   Lares4Scenario,
   Lares4Zone,
   Lares4Sensor,
   Lares4Gate,
+  Lares4Switch,
   Lares4Cover,
   Lares4Thermostat,
   Lares4Light,
@@ -18,6 +18,7 @@ import {
   Scenario,
   BusPeripheral,
   StatusTemperatures,
+  StatusSystem,
   ThermostatConfiguration,
   Lares4Sensors,
   Lares4SensorTypes,
@@ -28,12 +29,17 @@ import {
   mapActMode,
   mapSeason,
   mapCoverState,
+  Lares4DeviceDiscoveredEvent,
+  Lares4SystemStatusSnapshot,
+  Lares4SystemStatusEvent,
 } from '../../types';
 
 import { Deferred } from '../../utils';
 import { Lares4Socket } from './lares4-socket';
 import { GenericLogger, Lares4Logger, LogLevelEnum } from '../internal/lares4-logger';
 import { TypedEmitter } from '../core/typed-emitter';
+import { projectOutputDevice } from '../core/device-projector';
+import { parseFloatInRange, parseIntegerInRange } from '../core/parse';
 
 const SCENARIOS_NOT_ALLOWED = [
   'ARM',
@@ -50,6 +56,7 @@ const LARES4_INFO_KEYS = [
   'STATUS_BUS_HA_SENSORS',
   'STATUS_TEMPERATURES',
   'STATUS_ZONES',
+  'STATUS_SYSTEM',
 ];
 
 export interface Lares4Info {
@@ -58,8 +65,10 @@ export interface Lares4Info {
   zones: Record<number, Lares4Zone>;
   sensors: Record<number, Lares4Sensors>;
   gates: Record<number, Lares4Gate>;
+  switches: Record<number, Lares4Switch>;
   covers: Record<number, Lares4Cover>;
   thermostats: Record<number, Lares4Thermostat>;
+  systemStatus: Lares4SystemStatusSnapshot;
 }
 
 export interface Lares4Options {
@@ -69,6 +78,14 @@ export interface Lares4Options {
   reconnect_delay_ms?: number;
   log_level?: LogLevelEnum;
   command_timeout_ms?: number;
+  /** Called for every `MULTI_TYPES` read with the parsed payload (e.g. for debugging protocol vs derived state). */
+  onMultitypesPayload?: (payload: Record<string, unknown>) => void;
+  /** Called when a device is first discovered during initial sync. */
+  onDeviceDiscovered?: (event: Lares4DeviceDiscoveredEvent) => void;
+  /** Called once initial sync completes and realtime registration is active. */
+  onInitialSyncComplete?: () => void;
+  /** Called when system status snapshot changes (`STATUS_SYSTEM`). */
+  onSystemStatus?: (event: Lares4SystemStatusEvent) => void;
 }
 
 export class Lares4Factory {
@@ -88,9 +105,35 @@ export class Lares4 {
   private _deferreds: Map<string, Deferred> = new Map();
   private readonly _updateEmitter = new TypedEmitter<Lares4DeviceUpdateEvent>();
   private _unsubscribeMessages?: () => void;
+  /** Resolved when the first OPEN handler finishes initial MULTI_TYPES sync (after REALTIME REGISTER). */
+  private _initialSync: Deferred<void> | undefined;
+  private readonly _onMultitypesPayload?: (payload: Record<string, unknown>) => void;
+  private readonly _onDeviceDiscovered?: (event: Lares4DeviceDiscoveredEvent) => void;
+  private readonly _onInitialSyncComplete?: () => void;
+  private readonly _onSystemStatus?: (event: Lares4SystemStatusEvent) => void;
+  private readonly _discoveredEmitter = new TypedEmitter<Lares4DeviceDiscoveredEvent>();
+  private readonly _initialSyncCompleteEmitter = new TypedEmitter<void>();
+  private readonly _systemStatusEmitter = new TypedEmitter<Lares4SystemStatusEvent>();
+  private readonly _seenDeviceKeys = new Set<string>();
+  private readonly _pendingOutputStatuses = new Map<number, OutputStatus>();
+  private readonly _pendingSensorStatuses = new Map<number, { ID: string; TEMP: number; HUMIDITY: number; LIGHT: number }>();
+  private readonly _pendingTemperatureStatuses = new Map<number, StatusTemperatures>();
+  private readonly _pendingZoneStatuses = new Map<number, ZoneStatus>();
 
   public onUpdate(listener: (event: Lares4DeviceUpdateEvent) => void): () => void {
     return this._updateEmitter.subscribe(listener);
+  }
+
+  public onDiscovered(listener: (event: Lares4DeviceDiscoveredEvent) => void): () => void {
+    return this._discoveredEmitter.subscribe(listener);
+  }
+
+  public onInitialSyncComplete(listener: () => void): () => void {
+    return this._initialSyncCompleteEmitter.subscribe(() => listener());
+  }
+
+  public onSystemStatus(listener: (event: Lares4SystemStatusEvent) => void): () => void {
+    return this._systemStatusEmitter.subscribe(listener);
   }
 
   get outputs(): Lares4Device[] {
@@ -98,6 +141,7 @@ export class Lares4 {
       ...this.lights as Lares4Device[],
       ...this.covers as Lares4Device[],
       ...this.gates as Lares4Device[],
+      ...this.switches as Lares4Device[],
     ].sort((a, b) => a.id - b.id);
   }
 
@@ -116,6 +160,12 @@ export class Lares4 {
   get gates(): Lares4Gate[] {
     return Object.values(
       this._lares4.gates,
+    ).sort((a, b) => a.id - b.id);
+  }
+
+  get switches(): Lares4Switch[] {
+    return Object.values(
+      this._lares4.switches,
     ).sort((a, b) => a.id - b.id);
   }
 
@@ -145,6 +195,10 @@ export class Lares4 {
     ).sort((a, b) => a.id - b.id);
   }
 
+  get systemStatus(): Lares4SystemStatusSnapshot {
+    return this._lares4.systemStatus;
+  }
+
   constructor(
     sender: string,
     pin: string,
@@ -166,14 +220,20 @@ export class Lares4 {
         command_timeout_ms: options?.command_timeout_ms,
       },
     );
+    this._onMultitypesPayload = options?.onMultitypesPayload;
+    this._onDeviceDiscovered = options?.onDeviceDiscovered;
+    this._onInitialSyncComplete = options?.onInitialSyncComplete;
+    this._onSystemStatus = options?.onSystemStatus;
     this._lares4 = {
       lights: {},
       scenarios: {},
       zones: {},
       sensors: {},
       gates: {},
+      switches: {},
       covers: {},
       thermostats: {},
+      systemStatus: { temperatures: [] },
     };
   }
 
@@ -294,26 +354,27 @@ export class Lares4 {
       'REGISTER',
       {
         ID_LOGIN: 'true',
-        TYPES: ['STATUS_OUTPUTS', 'STATUS_BUS_HA_SENSORS', 'STATUS_TEMPERATURES', 'STATUS_ZONES', 'SCENARIOS'],
+        TYPES: ['STATUS_OUTPUTS', 'STATUS_BUS_HA_SENSORS', 'STATUS_TEMPERATURES', 'STATUS_ZONES', 'SCENARIOS', 'STATUS_SYSTEM'],
       },
     );
   }
 
   public async run() {
+    this._initialSync = new Deferred<void>();
+    this._seenDeviceKeys.clear();
     this._unsubscribeMessages?.();
     this._unsubscribeMessages = this._ws.messages.subscribe((message: Lares4SocketEventEmitted) => {
       this.listen(message);
     });
 
     await this._ws.open();
+    await this._initialSync.promise;
   }
 
   private listen(data: Lares4SocketEventEmitted) {
     switch (data.type) {
     case Lares4SocketEventType.OPEN:
-      this.handleOpen().catch(err =>
-        this._logger.error(`handleOpen failed: ${err instanceof Error ? err.message : String(err)}`),
-      );
+      void this.handleOpen();
       break;
     case Lares4SocketEventType.MULTI_TYPES:
       this.handleMultiTypes(data);
@@ -331,17 +392,31 @@ export class Lares4 {
   }
 
   private async handleOpen() {
-    this.start();
-    const results = await Promise.allSettled([...this._deferreds.values()].map(d => d.promise));
-    const failCount = results.filter(r => r.status === 'rejected').length;
-    if (failCount > 0) {
-      this._logger.warn(`Initial sync: ${failCount} data type(s) unavailable`);
+    try {
+      this.start();
+      const results = await Promise.allSettled([...this._deferreds.values()].map(d => d.promise));
+      const failCount = results.filter(r => r.status === 'rejected').length;
+      if (failCount > 0) {
+        this._logger.warn(`Initial sync: ${failCount} data type(s) unavailable`);
+      }
+      this.update();
+      this._onInitialSyncComplete?.();
+      this._initialSyncCompleteEmitter.emit(undefined);
+      this._initialSync?.resolve();
+    } catch (err) {
+      this._initialSync?.reject(err instanceof Error ? err : new Error(String(err)));
+      this._logger.error(`handleOpen failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-    this.update();
   }
 
   private handleClose() {
     this._deferreds.clear();
+    this._seenDeviceKeys.clear();
+    this._pendingOutputStatuses.clear();
+    this._pendingSensorStatuses.clear();
+    this._pendingTemperatureStatuses.clear();
+    this._pendingZoneStatuses.clear();
+    this._initialSync?.reject(new Error('Connection closed before initial sync completed'));
   }
 
   private handleError(data: Lares4SocketEventEmitted) {
@@ -351,6 +426,7 @@ export class Lares4 {
   private handleMultiTypes(data: Lares4SocketEventEmitted) {
     const multiTypesData = this.parseEventPayload(data);
     const payload = multiTypesData.PAYLOAD as Record<string, unknown>;
+    this._onMultitypesPayload?.(payload);
     const outputs = payload.OUTPUTS as Output[] | undefined;
     const statusOutputs = payload.STATUS_OUTPUTS as OutputStatus[] | undefined;
     const zonesPayload = payload.ZONES as Zone[] | undefined;
@@ -358,6 +434,7 @@ export class Lares4 {
     const busHas = payload.BUS_HAS as BusPeripheral[] | undefined;
     const statusBusSensors = payload.STATUS_BUS_HA_SENSORS as BusPeripheral[] | undefined;
     const statusTemperatures = payload.STATUS_TEMPERATURES as StatusTemperatures[] | undefined;
+    const statusSystem = payload.STATUS_SYSTEM as StatusSystem[] | undefined;
     const cfgThermostats = payload.CFG_THERMOSTATS as ThermostatConfiguration[] | undefined;
     const scenariosPayload = payload.SCENARIOS as Scenario[] | undefined;
 
@@ -366,12 +443,12 @@ export class Lares4 {
     const zones: Record<number, Lares4Zone> = {};
     const sensors: Record<number, Lares4Sensors> = {};
     const gates: Record<number, Lares4Gate> = {};
+    const switches: Record<number, Lares4Switch> = {};
     const covers: Record<number, Lares4Cover> = {};
     const thermostats: Record<number, Lares4Thermostat> = {};
 
     if (outputs && statusOutputs) {
       for (const output of outputs as Output[]) {
-        let type: Lares4DeviceTypes;
         const outputStatus = statusOutputs.find((status: OutputStatus) => status.ID === output.ID);
 
         if (!outputStatus) {
@@ -379,37 +456,29 @@ export class Lares4 {
           continue;
         }
 
-        switch (output.CAT) {
-        case Lares4OutputCategories.ROLL:
-          type = Lares4DeviceTypes.COVER;
-          covers[parseInt(output.ID)] = {
-            id: parseInt(output.ID),
-            type,
-            description: output.DES,
-            position: Number(outputStatus.POS ?? 0),
-            targetPosition: Number(outputStatus.TPOS ?? outputStatus.POS ?? 0),
-            state: mapCoverState(outputStatus.STA),
-          } as Lares4Cover;
+        const projected = projectOutputDevice(output, outputStatus);
+        if (!projected) {
+          continue;
+        }
+
+        switch (projected.type) {
+        case Lares4DeviceTypes.COVER:
+          covers[projected.id] = projected;
+          this.emitDiscoveredIfFirst(projected);
           break;
-        case Lares4OutputCategories.GATE:
-          type = Lares4DeviceTypes.GATE;
-          gates[parseInt(output.ID)] = {
-            id: parseInt(output.ID),
-            type,
-            description: output.DES,
-            on: outputStatus.STA === 'ON',
-          } as Lares4Gate;
+        case Lares4DeviceTypes.GATE:
+          gates[projected.id] = projected;
+          this.emitDiscoveredIfFirst(projected);
+          break;
+        case Lares4DeviceTypes.SWITCH:
+          switches[projected.id] = projected;
+          this.emitDiscoveredIfFirst(projected);
+          break;
+        case Lares4DeviceTypes.LIGHT:
+          lights[projected.id] = projected;
+          this.emitDiscoveredIfFirst(projected);
           break;
         default:
-          type = Lares4DeviceTypes.LIGHT;
-          lights[parseInt(output.ID)] = {
-            id: parseInt(output.ID),
-            type,
-            description: output.DES,
-            brightness: Number(outputStatus.POS ?? 0),
-            on: outputStatus.STA === 'ON',
-            dimmable: outputStatus.POS !== undefined,
-          } as Lares4Light;
           break;
         }
       }
@@ -417,6 +486,11 @@ export class Lares4 {
       this._lares4.lights = lights;
       this._lares4.covers = covers;
       this._lares4.gates = gates;
+      this._lares4.switches = switches;
+      Object.keys(this._lares4.lights).forEach((id) => this.applyPendingOutputStatus(Number(id)));
+      Object.keys(this._lares4.covers).forEach((id) => this.applyPendingOutputStatus(Number(id)));
+      Object.keys(this._lares4.gates).forEach((id) => this.applyPendingOutputStatus(Number(id)));
+      Object.keys(this._lares4.switches).forEach((id) => this.applyPendingOutputStatus(Number(id)));
       this._deferreds.get('OUTPUTS')?.resolve(outputs);
       this._deferreds.get('STATUS_OUTPUTS')?.resolve(statusOutputs);
     } else {
@@ -437,14 +511,17 @@ export class Lares4 {
         zones[parseInt(zone.ID)] = {
           id: parseInt(zone.ID),
           type: Lares4DeviceTypes.ZONE,
+          description: zone.DES ?? '',
           armed: zoneStatus.A === 'Y',
           bypassed: zoneStatus.BYP === 'YES',
           fault: zoneStatus.FM === 'T',
           open: zoneStatus.STA === 'A',
         } as Lares4Zone;
+        this.emitDiscoveredIfFirst(zones[parseInt(zone.ID)]);
       }
 
       this._lares4.zones = zones;
+      Object.keys(this._lares4.zones).forEach((id) => this.applyPendingZoneStatus(Number(id)));
       this._deferreds.get('ZONES')?.resolve(zonesPayload);
       this._deferreds.get('STATUS_ZONES')?.resolve(statusZones);
     } else {
@@ -478,9 +555,11 @@ export class Lares4 {
             } as Lares4Sensor,
           ],
         } as Lares4Sensors;
+        this.emitDiscoveredIfFirst(sensors[parseInt(busPeripheral.ID)]);
       });
 
       this._lares4.sensors = sensors;
+      Object.keys(this._lares4.sensors).forEach((id) => this.applyPendingSensorStatus(Number(id)));
       this._deferreds.get('BUS_HAS')?.resolve(busHas);
     } else {
       this._logger.warn(`No data found for type: ${'BUS_HAS'}`);
@@ -494,6 +573,7 @@ export class Lares4 {
         .forEach((sensor: BusPeripheral) => {
           const statusTemperature = statusTemperatures.find((thermostat: StatusTemperatures) => thermostat.ID === sensor.ID);
           const configuration = cfgThermostats.find((thermostat: ThermostatConfiguration) => thermostat.ID === sensor.ID);
+          const busHasRow = busHas?.find((row: BusPeripheral) => row.ID === sensor.ID);
 
           if (!statusTemperature) {
             this._logger.warn(`No StatusTemperatures entry for thermostat ${sensor.ID}, skipping`);
@@ -503,17 +583,19 @@ export class Lares4 {
           thermostats[parseInt(sensor.ID)] = {
             id: parseInt(sensor.ID),
             type: Lares4DeviceTypes.THERMOSTAT,
-            description: sensor.DES,
-            currentTemperature: Number(statusTemperature.TEMP),
-            targetTemperature: Number((configuration?.WIN as { TM?: string } | undefined)?.TM ?? 0),
+            description: sensor.DES || busHasRow?.DES || sensors[parseInt(sensor.ID)]?.description || '',
+            currentTemperature: parseFloatInRange(statusTemperature.TEMP, -50, 100) ?? 0,
+            targetTemperature: parseFloatInRange((configuration?.WIN as { TM?: string } | undefined)?.TM, 0, 50) ?? 0,
             mode: mapActMode(configuration?.ACT_MODE ?? ThermostatActModes.OFF),
             season: mapSeason(configuration?.ACT_SEA ?? ThermostatSeasons.WIN),
-            manualEnd: Number(configuration?.MAN_HRS ?? 0),
+            manualEnd: parseIntegerInRange(configuration?.MAN_HRS, 0, 9999) ?? 0,
             enabled: statusTemperature.THERM?.OUT_STATUS === 'ON',
           } as Lares4Thermostat;
+          this.emitDiscoveredIfFirst(thermostats[parseInt(sensor.ID)]);
         });
 
       this._lares4.thermostats = thermostats;
+      Object.keys(this._lares4.thermostats).forEach((id) => this.applyPendingTemperatureStatus(Number(id)));
       this._deferreds.get('STATUS_BUS_HA_SENSORS')?.resolve(statusBusSensors);
       this._deferreds.get('CFG_THERMOSTATS')?.resolve(cfgThermostats);
       this._deferreds.get('STATUS_TEMPERATURES')?.resolve(statusTemperatures);
@@ -531,6 +613,7 @@ export class Lares4 {
           type: Lares4DeviceTypes.SCENARIO,
           category: scenario.CAT,
         } as Lares4Scenario;
+        this.emitDiscoveredIfFirst(scenarios[parseInt(scenario.ID)]);
       });
 
       this._lares4.scenarios = scenarios;
@@ -539,6 +622,13 @@ export class Lares4 {
       this._logger.warn(`No data found for type: ${'SCENARIOS'}`);
       this._lares4.scenarios = {};
       this._deferreds.get('SCENARIOS')?.reject(new Error('SCENARIOS missing'));
+    }
+
+    if (Array.isArray(statusSystem)) {
+      this.applySystemStatus(statusSystem);
+      this._deferreds.get('STATUS_SYSTEM')?.resolve(statusSystem);
+    } else {
+      this._deferreds.get('STATUS_SYSTEM')?.reject(new Error('STATUS_SYSTEM missing'));
     }
   }
 
@@ -550,17 +640,18 @@ export class Lares4 {
           switch (updates) {
           case 'STATUS_OUTPUTS':
             for (const update of changeData.PAYLOAD[receiver][updates] as OutputStatus[]) {
-              const device = this.outputs.find((output) => output.id === parseInt(update.ID));
+              const outputId = parseInt(update.ID, 10);
+              const device = this.outputs.find((output) => output.id === outputId);
               if (!device) {
-                this._logger.warn(`STATUS_OUTPUTS update for unknown device ${update.ID}, skipping`);
+                this._pendingOutputStatuses.set(outputId, update);
                 continue;
               }
               switch (device.type) {
               case Lares4DeviceTypes.COVER:
                 this._lares4.covers[device.id] = {
                   ...this._lares4.covers[device.id],
-                  position: Number(update.POS ?? 0),
-                  targetPosition: Number(update.TPOS ?? update.POS ?? 0),
+                  position: parseIntegerInRange(update.POS, 0, 100) ?? 0,
+                  targetPosition: parseIntegerInRange(update.TPOS ?? update.POS, 0, 100) ?? 0,
                   state: mapCoverState(update.STA),
                 } as Lares4Cover;
                 this._updateEmitter.emit({ type: Lares4DeviceTypes.COVER, device: this._lares4.covers[device.id] });
@@ -572,10 +663,17 @@ export class Lares4 {
                 } as Lares4Gate;
                 this._updateEmitter.emit({ type: Lares4DeviceTypes.GATE, device: this._lares4.gates[device.id] });
                 break;
+              case Lares4DeviceTypes.SWITCH:
+                this._lares4.switches[device.id] = {
+                  ...this._lares4.switches[device.id],
+                  on: update.STA?.toUpperCase() === 'ON',
+                } as Lares4Switch;
+                this._updateEmitter.emit({ type: Lares4DeviceTypes.SWITCH, device: this._lares4.switches[device.id] });
+                break;
               default:
                 this._lares4.lights[device.id] = {
                   ...this._lares4.lights[device.id],
-                  brightness: Number(update.POS ?? 0),
+                  brightness: parseIntegerInRange(update.POS, 0, 100) ?? 0,
                   on: update.STA?.toUpperCase() === 'ON',
                   dimmable: update.POS !== undefined,
                 } as Lares4Light;
@@ -588,7 +686,7 @@ export class Lares4 {
             for (const update of changeData.PAYLOAD[receiver][updates] as Array<{ ID: string; TEMP: number; HUMIDITY: number; LIGHT: number }>) {
               const device = this.sensors.find((sensor) => sensor.id === parseInt(update.ID));
               if (!device) {
-                this._logger.warn(`STATUS_BUS_HA_SENSORS update for unknown device ${update.ID}, skipping`);
+                this._pendingSensorStatuses.set(parseInt(update.ID, 10), update);
                 continue;
               }
               this._lares4.sensors[device.id] = {
@@ -596,17 +694,17 @@ export class Lares4 {
                 sensors: [
                   {
                     type: Lares4SensorTypes.TEMPERATURE,
-                    value: update.TEMP,
+                    value: parseFloatInRange(update.TEMP, -50, 100) ?? 0,
                     unit: '°C',
                   },
                   {
                     type: Lares4SensorTypes.HUMIDITY,
-                    value: update.HUMIDITY,
+                    value: parseFloatInRange(update.HUMIDITY, 0, 100) ?? 0,
                     unit: '%',
                   },
                   {
                     type: Lares4SensorTypes.LIGHT,
-                    value: update.LIGHT,
+                    value: parseFloatInRange(update.LIGHT, 0, 100000) ?? 0,
                     unit: 'lux',
                   },
                 ],
@@ -618,12 +716,12 @@ export class Lares4 {
             for (const update of changeData.PAYLOAD[receiver][updates] as StatusTemperatures[]) {
               const device = this.thermostats.find((thermostat) => thermostat.id === parseInt(update.ID));
               if (!device) {
-                this._logger.warn(`STATUS_TEMPERATURES update for unknown device ${update.ID}, skipping`);
+                this._pendingTemperatureStatuses.set(parseInt(update.ID, 10), update);
                 continue;
               }
               this._lares4.thermostats[device.id] = {
                 ...this._lares4.thermostats[device.id],
-                currentTemperature: Number(update.TEMP),
+                currentTemperature: parseFloatInRange(update.TEMP, -50, 100) ?? this._lares4.thermostats[device.id].currentTemperature,
                 mode: mapActMode(update.THERM?.ACT_MODEL ?? ThermostatActModes.OFF),
                 season: mapSeason(update.THERM?.ACT_SEA ?? ThermostatSeasons.WIN),
                 enabled: update.THERM?.OUT_STATUS === 'ON',
@@ -635,7 +733,7 @@ export class Lares4 {
             for (const update of changeData.PAYLOAD[receiver][updates] as ZoneStatus[]) {
               const zone = this.zones.find((zone) => zone.id === parseInt(update.ID));
               if (!zone) {
-                this._logger.warn(`STATUS_ZONES update for unknown zone ${update.ID}, skipping`);
+                this._pendingZoneStatuses.set(parseInt(update.ID, 10), update);
                 continue;
               }
               this._lares4.zones[zone.id] = {
@@ -647,6 +745,9 @@ export class Lares4 {
               } as Lares4Zone;
               this._updateEmitter.emit({ type: Lares4DeviceTypes.ZONE, device: this._lares4.zones[zone.id] });
             }
+            break;
+          case 'STATUS_SYSTEM':
+            this.applySystemStatus(changeData.PAYLOAD[receiver][updates] as StatusSystem[]);
             break;
           case 'SCENARIOS':
             for (const update of changeData.PAYLOAD[receiver][updates] as Scenario[]) {
@@ -729,6 +830,84 @@ export class Lares4 {
   public close(): void {
     this._unsubscribeMessages?.();
     this._ws.close();
+  }
+
+  private applySystemStatus(rows: StatusSystem[]): void {
+    const row = rows[0];
+    if (!row?.TEMP) {
+      return;
+    }
+    const temperatures = [
+      row.TEMP.IN !== undefined
+        ? { id: 'in' as const, value: parseFloatInRange(row.TEMP.IN, -50, 100) ?? 0, unit: '°C' as const }
+        : undefined,
+      row.TEMP.OUT !== undefined
+        ? { id: 'out' as const, value: parseFloatInRange(row.TEMP.OUT, -50, 100) ?? 0, unit: '°C' as const }
+        : undefined,
+    ].filter(Boolean) as Lares4SystemStatusSnapshot['temperatures'];
+    this._lares4.systemStatus = { temperatures };
+    const event: Lares4SystemStatusEvent = { status: this._lares4.systemStatus };
+    this._onSystemStatus?.(event);
+    this._systemStatusEmitter.emit(event);
+  }
+
+  private applyPendingOutputStatus(id: number): void {
+    const pending = this._pendingOutputStatuses.get(id);
+    if (!pending) {
+      return;
+    }
+    this._pendingOutputStatuses.delete(id);
+    this.handleChange({
+      type: Lares4SocketEventType.CHANGE,
+      message: { [this._ws.sender]: { STATUS_OUTPUTS: [pending] } },
+    });
+  }
+
+  private applyPendingSensorStatus(id: number): void {
+    const pending = this._pendingSensorStatuses.get(id);
+    if (!pending) {
+      return;
+    }
+    this._pendingSensorStatuses.delete(id);
+    this.handleChange({
+      type: Lares4SocketEventType.CHANGE,
+      message: { [this._ws.sender]: { STATUS_BUS_HA_SENSORS: [pending] } },
+    });
+  }
+
+  private applyPendingTemperatureStatus(id: number): void {
+    const pending = this._pendingTemperatureStatuses.get(id);
+    if (!pending) {
+      return;
+    }
+    this._pendingTemperatureStatuses.delete(id);
+    this.handleChange({
+      type: Lares4SocketEventType.CHANGE,
+      message: { [this._ws.sender]: { STATUS_TEMPERATURES: [pending] } },
+    });
+  }
+
+  private applyPendingZoneStatus(id: number): void {
+    const pending = this._pendingZoneStatuses.get(id);
+    if (!pending) {
+      return;
+    }
+    this._pendingZoneStatuses.delete(id);
+    this.handleChange({
+      type: Lares4SocketEventType.CHANGE,
+      message: { [this._ws.sender]: { STATUS_ZONES: [pending] } },
+    });
+  }
+
+  private emitDiscoveredIfFirst(device: Lares4Device): void {
+    const key = `${device.type}:${device.id}`;
+    if (this._seenDeviceKeys.has(key)) {
+      return;
+    }
+    this._seenDeviceKeys.add(key);
+    const event: Lares4DeviceDiscoveredEvent = { device };
+    this._onDeviceDiscovered?.(event);
+    this._discoveredEmitter.emit(event);
   }
 
 }

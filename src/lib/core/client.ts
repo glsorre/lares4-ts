@@ -54,7 +54,10 @@ export class Lares4CoreClient {
     );
 
     this.router = new ProtocolRouter({
-      onResponse: (message) => this.dispatcher.resolvePending(message),
+      onResponse: (message) => {
+        this.dispatcher.resolvePending(message);
+        this.messageService.handleCommandResponse(message);
+      },
       onLoginResponse: (message) => this.messageService.handleLoginResponse(message),
       onReadResponse: (message) => this.messageService.handleReadResponse(message),
       onRealtimeResponse: (message) => this.messageService.handleRealtimeResponse(message),
@@ -118,6 +121,10 @@ export class Lares4CoreClient {
 
   private handleRawMessage(raw: string): void {
     try {
+      this.messages.emit({
+        type: Lares4SocketEventType.RAW,
+        message: raw,
+      });
       const message = JSON.parse(raw) as Lares4Message;
       this.router.route(message);
     } catch (error: unknown) {

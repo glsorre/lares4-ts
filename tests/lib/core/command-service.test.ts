@@ -65,6 +65,7 @@ describe('CommandService', () => {
     await service.requestInitialData();
 
     assert.deepEqual(calls, [
+      { cmd: 'READ', payloadType: 'STATUS_SYSTEM' },
       { cmd: 'READ', payloadType: 'CFG_THERMOSTATS' },
       { cmd: 'READ', payloadType: 'PRG_THERMOSTATS' },
     ]);

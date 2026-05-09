@@ -29,6 +29,11 @@ for (const d of lares.gates) {
   console.log(`  [${d.id}] ${d.description} — on=${d.on}`);
 }
 
+console.log(`\nSwitches (${lares.switches.length}):`);
+for (const d of lares.switches) {
+  console.log(`  [${d.id}] ${d.description} — on=${d.on}`);
+}
+
 console.log(`\nThermostats (${lares.thermostats.length}):`);
 for (const d of lares.thermostats) {
   console.log(`  [${d.id}] ${d.description} — current=${d.currentTemperature} target=${d.targetTemperature} mode=${d.mode}`);
@@ -63,6 +68,9 @@ const unsubscribe = lares.onUpdate((event) => {
     break;
   case Lares4DeviceTypes.GATE:
     console.log(`[GATE]      [${device.id}] ${device.description} — on=${device.on}`);
+    break;
+  case Lares4DeviceTypes.SWITCH:
+    console.log(`[SWITCH]    [${device.id}] ${device.description} — on=${device.on}`);
     break;
   case Lares4DeviceTypes.THERMOSTAT:
     console.log(`[THERMO]    [${device.id}] ${device.description} — current=${device.currentTemperature} target=${device.targetTemperature}`);

@@ -20,7 +20,7 @@ import { Lares4Factory } from 'lares4-ts';
 
 const lares = await Lares4Factory.createLares4(
   'MY_SENDER',
-  '192.168.1.20',
+  '192.168.1.XXX',
   '123456',
   true,
 );
@@ -66,6 +66,15 @@ Unsupported API surface:
 - Reconnect uses capped exponential backoff with jitter.
 - Command flow supports ACK/timeout semantics and surfaces typed timeout errors.
 
+## Security Output Partition
+
+- Non-security auxiliary outputs remain mapped as `switches`.
+- Alarm/security-related auxiliary outputs are exposed separately as `securityOutputs`.
+- This keeps switch ergonomics stable while avoiding accidental mixing of security actuators with generic auxiliaries.
+
+Debug console note:
+- `state security` prints the current `securityOutputs` snapshot.
+
 ## Development
 
 ```bash
@@ -73,10 +82,6 @@ npm run lint
 npm run build
 npm test
 ```
-
-Other useful checks:
-- `npm run naming:check`
-- `npm run api:check`
 
 ## Credits
 

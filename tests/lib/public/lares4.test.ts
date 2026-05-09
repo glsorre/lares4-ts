@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Lares4, Lares4Factory, type Lares4Info } from '../../../src/lib/public/lares4';
+import { Lares4, Lares4Factory, type Lares4Info, type Lares4Options } from '../../../src/lib/public/lares4';
 import {
   Lares4CoverStates,
+  Lares4DeviceDiscoveredEvent,
   Lares4DeviceTypes,
   Lares4DeviceUpdateEvent,
   Lares4OutputCategories,
@@ -26,6 +27,7 @@ function createMockInfo(): Lares4Info {
     gates: {
       5: { id: 5, type: Lares4DeviceTypes.GATE, description: 'Gate 1', on: false },
     },
+    switches: {},
     scenarios: {
       6: { id: 6, type: Lares4DeviceTypes.SCENARIO, description: 'Scenario 1', category: 'ARM' },
       7: { id: 7, type: Lares4DeviceTypes.SCENARIO, description: 'Scenario 2', category: 'CUSTOM' },
@@ -49,11 +51,14 @@ function createMockInfo(): Lares4Info {
     zones: {
       10: { id: 10, type: Lares4DeviceTypes.ZONE, description: 'Zone 1', armed: false, bypassed: false, fault: false, open: false },
     },
+    systemStatus: {
+      temperatures: [],
+    },
   };
 }
 
-function createLaresWithStubs() {
-  const lares4 = new Lares4('test-sender', '123456', '192.168.1.100', true);
+function createLaresWithStubs(options?: Lares4Options) {
+  const lares4 = new Lares4('test-sender', '123456', '192.168.1.100', true, options);
   const sent: Array<[string, string, Record<string, unknown>]> = [];
   const stubSocket = {
     send: (cmd: string, payloadType: string, payload: Record<string, unknown>) => {
@@ -82,6 +87,7 @@ describe('Lares4', () => {
     assert.deepEqual(lares4.sensors.map((d) => d.id), [9]);
     assert.deepEqual(lares4.zones.map((d) => d.id), [10]);
     assert.deepEqual(lares4.outputs.map((d) => d.id), [1, 2, 3, 4, 5]);
+    assert.deepEqual(lares4.switches, []);
   });
 
   it('factory creates and runs instance', async () => {
@@ -107,6 +113,7 @@ describe('Lares4', () => {
     };
     stubSocket.open = async () => {
       opened += 1;
+      (lares4 as unknown as { _initialSync?: Deferred<void> })._initialSync?.resolve();
     };
 
     await lares4.run();
@@ -189,7 +196,7 @@ describe('Lares4', () => {
         OUTPUTS: [
           { ID: '1', CAT: Lares4OutputCategories.LIGHT, DES: 'Light A' },
           { ID: '3', CAT: Lares4OutputCategories.ROLL, DES: 'Cover A' },
-          { ID: '5', CAT: Lares4OutputCategories.GATE, DES: 'Gate A' },
+          { ID: '5', CAT: Lares4OutputCategories.GATE, MOD: 'M', DES: 'Gate A' },
         ],
         STATUS_OUTPUTS: [
           { ID: '1', STA: 'ON', POS: '75' },
@@ -212,9 +219,206 @@ describe('Lares4', () => {
     assert.equal(lares4.gates.find((d) => d.id === 5)?.description, 'Gate A');
     assert.equal(lares4.gates.find((d) => d.id === 5)?.on, false);
     assert.equal(lares4.zones.find((d) => d.id === 10)?.armed, true);
+    assert.equal(lares4.zones.find((d) => d.id === 10)?.description, 'Zone A');
     assert.equal(lares4.sensors.find((d) => d.id === 9)?.description, 'Sensor A');
     assert.equal(lares4.thermostats.find((d) => d.id === 8)?.targetTemperature, 21);
+    assert.equal(lares4.thermostats.find((d) => d.id === 8)?.description, 'Therm Sensor');
     assert.equal(lares4.scenarios.find((d) => d.id === 7)?.description, 'Scenario A');
+  });
+
+  it('handleMultiTypes invokes onMultitypesPayload with payload keys', () => {
+    const received: Record<string, unknown>[] = [];
+    const { lares4 } = createLaresWithStubs({
+      onMultitypesPayload: (p) => received.push(p),
+    });
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '1', CAT: Lares4OutputCategories.LIGHT, DES: 'Light A' }],
+        STATUS_OUTPUTS: [{ ID: '1', STA: 'ON', POS: '75' }],
+        ZONES: [{ ID: '10', DES: 'Zone A' }],
+        STATUS_ZONES: [{ ID: '10', A: 'Y', BYP: 'NO', FM: 'F', STA: 'A' }],
+        BUS_HAS: [{ ID: '9', DES: 'Sensor A' }],
+        STATUS_BUS_HA_SENSORS: [{ ID: '8', DOMUS: 'Y', DES: 'Therm Sensor' }],
+        STATUS_TEMPERATURES: [{ ID: '8', TEMP: '22', THERM: { OUT_STATUS: 'ON' } }],
+        CFG_THERMOSTATS: [{ ID: '8', WIN: { TM: '21' }, ACT_MODE: 'MAN', ACT_SEA: 'WIN', MAN_HRS: '2' }],
+        SCENARIOS: [{ ID: '7', DES: 'Scenario A', CAT: 'CUSTOM' }],
+      },
+    });
+
+    assert.equal(received.length, 1);
+    assert.ok(Array.isArray(received[0].OUTPUTS));
+    assert.ok(Array.isArray(received[0].STATUS_ZONES));
+  });
+
+  it('handleMultiTypes matches output CAT case-insensitively', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [
+          { ID: '1', CAT: 'LIGHT', DES: 'L' },
+          { ID: '2', CAT: 'ROLL', DES: 'R' },
+          { ID: '3', CAT: 'GATE', MOD: 'M', DES: 'G' },
+        ],
+        STATUS_OUTPUTS: [
+          { ID: '1', STA: 'ON', POS: '5' },
+          { ID: '2', STA: 'OPENING', POS: '10', TPOS: '90' },
+          { ID: '3', STA: 'ON', POS: '0' },
+        ],
+      },
+    });
+
+    assert.ok(lares4.lights.find((d) => d.id === 1));
+    assert.ok(lares4.covers.find((d) => d.id === 2));
+    assert.ok(lares4.gates.find((d) => d.id === 3));
+  });
+
+  it('handleMultiTypes maps GATE with non-M mode as cover', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '3', CAT: 'GATE', MOD: 'A', DES: 'Sliding gate motor' }],
+        STATUS_OUTPUTS: [{ ID: '3', STA: 'OPENING', POS: '10', TPOS: '90' }],
+      },
+    });
+
+    assert.ok(lares4.covers.find((d) => d.id === 3));
+    assert.equal(lares4.gates.find((d) => d.id === 3), undefined);
+  });
+
+  it('handleMultiTypes avoids misclassifying thermostat-like output categories as lights', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '31', CAT: 'THERM', DES: 'Thermostat relay output' }],
+        STATUS_OUTPUTS: [{ ID: '31', STA: 'ON', POS: '0' }],
+      },
+    });
+
+    assert.equal(lares4.lights.find((d) => d.id === 31), undefined);
+    assert.equal(lares4.outputs.find((d) => d.id === 31), undefined);
+  });
+
+  it('handleMultiTypes classifies auxiliary outputs as switches from description when CAT is generic', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [
+          { ID: '22', CAT: Lares4OutputCategories.LIGHT, DES: 'Caldaia' },
+        ],
+        STATUS_OUTPUTS: [
+          { ID: '22', STA: 'OFF', POS: '0' },
+        ],
+      },
+    });
+
+    assert.ok(lares4.switches.find((d) => d.id === 22));
+    assert.equal(lares4.lights.find((d) => d.id === 22), undefined);
+  });
+
+  it('excludes alarm-like auxiliary outputs from switches', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '23', CAT: 'DIMMER', DES: 'Sirena Esterna' }],
+        STATUS_OUTPUTS: [{ ID: '23', STA: 'ON', POS: '0' }],
+      },
+    });
+
+    assert.equal(lares4.switches.find((d) => d.id === 23), undefined);
+    assert.equal(lares4.lights.find((d) => d.id === 23)?.on, true);
+  });
+
+  it('keeps non-security auxiliary outputs as switches even when panel is armed', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [
+          { ID: '25', CAT: Lares4OutputCategories.LIGHT, DES: 'Crepuscolare' },
+          { ID: '26', CAT: Lares4OutputCategories.LIGHT, DES: 'Pulsanti' },
+        ],
+        STATUS_OUTPUTS: [
+          { ID: '25', STA: 'ON', POS: '0' },
+          { ID: '26', STA: 'OFF', POS: '0' },
+        ],
+        STATUS_SYSTEM: [{ ID: '1', ARM: { D: 'Totale', S: 'T' }, ALARM: [], ALARM_MEM: [], TAMPER: [], TAMPER_MEM: [], FAULT: [], FAULT_MEM: [] }],
+      },
+    });
+
+    assert.ok(lares4.switches.find((d) => d.id === 25));
+    assert.ok(lares4.switches.find((d) => d.id === 26));
+  });
+
+  it('excludes hidden outputs (CNV=H) from switches', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '24', CAT: Lares4OutputCategories.LIGHT, CNV: 'H', DES: 'Aux Hidden' }],
+        STATUS_OUTPUTS: [{ ID: '24', STA: 'ON', POS: '0' }],
+      },
+    });
+
+    assert.equal(lares4.switches.find((d) => d.id === 24), undefined);
+    assert.equal(lares4.lights.find((d) => d.id === 24)?.on, true);
+  });
+
+  it('handleMultiTypes classifies roller outputs by description when CAT is generic', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [
+          { ID: '10', CAT: Lares4OutputCategories.LIGHT, DES: 'Avvolgibile Soggiorno' },
+          { ID: '11', CAT: 'DIMMER', DES: 'Kitchen roller shutter' },
+        ],
+        STATUS_OUTPUTS: [
+          { ID: '10', STA: 'STOPPED', POS: '0', TPOS: '100' },
+          { ID: '11', STA: 'opening', POS: '5', TPOS: '50' },
+        ],
+      },
+    });
+
+    assert.ok(lares4.covers.find((d) => d.id === 10));
+    assert.ok(lares4.covers.find((d) => d.id === 11));
+    assert.equal(lares4.lights.find((d) => d.id === 10), undefined);
+    assert.equal(lares4.lights.find((d) => d.id === 11), undefined);
+  });
+
+  it('handleMultiTypes uses BUS_HAS description when DOMUS thermostat row omits DES', () => {
+    const { lares4 } = createLaresWithStubs();
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '1', CAT: Lares4OutputCategories.LIGHT, DES: 'Light A' }],
+        STATUS_OUTPUTS: [{ ID: '1', STA: 'ON', POS: '75' }],
+        ZONES: [{ ID: '10', DES: 'Zone A' }],
+        STATUS_ZONES: [{ ID: '10', A: 'Y', BYP: 'NO', FM: 'F', STA: 'A' }],
+        BUS_HAS: [{ ID: '8', DES: 'Termostato' }],
+        STATUS_BUS_HA_SENSORS: [{ ID: '8', DOMUS: 'Y' }],
+        STATUS_TEMPERATURES: [{ ID: '8', TEMP: '22', THERM: { OUT_STATUS: 'OFF' } }],
+        CFG_THERMOSTATS: [{ ID: '8', WIN: { TM: '21' }, ACT_MODE: 'OFF', ACT_SEA: 'WIN', MAN_HRS: '0' }],
+        SCENARIOS: [{ ID: '7', DES: 'Scenario A', CAT: 'CUSTOM' }],
+      },
+    });
+
+    assert.equal(lares4.thermostats.find((d) => d.id === 8)?.description, 'Termostato');
   });
 
   it('handleMultiTypes sets dimmable based on POS field presence not value', () => {
@@ -349,15 +553,8 @@ describe('Lares4', () => {
     assert.ok(warnings.some(w => w.includes('unavailable')));
   });
 
-  it('handleChange skips STATUS_OUTPUTS update for unknown device ID without throwing', () => {
+  it('handleChange stores STATUS_OUTPUTS update for unknown device ID without throwing', () => {
     const { lares4 } = createLaresWithStubs();
-    const warnings: string[] = [];
-    (lares4 as unknown as { _logger: { warn: (msg: string) => void; error: () => void; info: () => void; debug: () => void } })._logger = {
-      warn: (msg: string) => warnings.push(msg),
-      error: () => undefined,
-      info: () => undefined,
-      debug: () => undefined,
-    } as never;
     (lares4 as unknown as { _ws: { sender: string } })._ws.sender = 'test-sender';
     const handleChange = (lares4 as unknown as { handleChange: (evt: { message: Record<string, unknown> }) => void }).handleChange.bind(lares4);
 
@@ -368,7 +565,8 @@ describe('Lares4', () => {
         },
       },
     }));
-    assert.ok(warnings.some(w => w.includes('99')));
+    const pending = (lares4 as unknown as { _pendingOutputStatuses: Map<number, unknown> })._pendingOutputStatuses;
+    assert.equal(pending.has(99), true);
   });
 
   it('handleChange updates scenarios for matching sender', () => {
@@ -470,6 +668,88 @@ describe('Lares4', () => {
     assert.equal(received.length, 6);
   });
 
+  it('emits discovered events once per device and initial sync complete once', async () => {
+    const discovered: Lares4DeviceDiscoveredEvent[] = [];
+    let syncCompleteCount = 0;
+    const discoveredViaOption: Lares4DeviceDiscoveredEvent[] = [];
+    let syncViaOptionCount = 0;
+    const { lares4 } = createLaresWithStubs({
+      onDeviceDiscovered: (event) => discoveredViaOption.push(event),
+      onInitialSyncComplete: () => {
+        syncViaOptionCount += 1;
+      },
+    });
+    const onDiscoveredUnsub = lares4.onDiscovered((event) => discovered.push(event));
+    const onSyncUnsub = lares4.onInitialSyncComplete(() => {
+      syncCompleteCount += 1;
+    });
+    const handleOpen = (lares4 as unknown as { handleOpen: () => Promise<void> }).handleOpen.bind(lares4);
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    const payload = {
+      OUTPUTS: [{ ID: '1', CAT: Lares4OutputCategories.LIGHT, DES: 'Light A' }],
+      STATUS_OUTPUTS: [{ ID: '1', STA: 'ON', POS: '75' }],
+      ZONES: [{ ID: '10', DES: 'Zone A' }],
+      STATUS_ZONES: [{ ID: '10', A: 'Y', BYP: 'NO', FM: 'F', STA: 'A' }],
+      BUS_HAS: [{ ID: '9', DES: 'Sensor A' }],
+      STATUS_BUS_HA_SENSORS: [{ ID: '8', DOMUS: 'Y', DES: 'Therm Sensor' }],
+      STATUS_TEMPERATURES: [{ ID: '8', TEMP: '22', THERM: { OUT_STATUS: 'ON' } }],
+      CFG_THERMOSTATS: [{ ID: '8', WIN: { TM: '21' }, ACT_MODE: 'MAN', ACT_SEA: 'WIN', MAN_HRS: '2' }],
+      SCENARIOS: [{ ID: '7', DES: 'Scenario A', CAT: 'CUSTOM' }],
+    };
+
+    const firstOpen = handleOpen();
+    handleMultiTypes({ message: payload });
+    await firstOpen;
+
+    const discoveredKeys = new Set(discovered.map((e) => `${e.device.type}:${e.device.id}`));
+    assert.equal(discovered.length, discoveredKeys.size);
+    assert.equal(syncCompleteCount, 1);
+    assert.equal(discoveredViaOption.length, discovered.length);
+    assert.equal(syncViaOptionCount, 1);
+
+    handleMultiTypes({ message: payload });
+    assert.equal(discovered.length, discoveredKeys.size);
+
+    onDiscoveredUnsub();
+    onSyncUnsub();
+  });
+
+  it('clears discovery dedupe cache on close and re-emits discovered events on reconnect', async () => {
+    const discovered: Array<string> = [];
+    const { lares4 } = createLaresWithStubs();
+    lares4.onDiscovered((event) => discovered.push(`${event.device.type}:${event.device.id}`));
+    const handleOpen = (lares4 as unknown as { handleOpen: () => Promise<void> }).handleOpen.bind(lares4);
+    const handleClose = (lares4 as unknown as { handleClose: () => void }).handleClose.bind(lares4);
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    const payload = {
+      OUTPUTS: [{ ID: '1', CAT: Lares4OutputCategories.LIGHT, DES: 'Light A' }],
+      STATUS_OUTPUTS: [{ ID: '1', STA: 'ON', POS: '75' }],
+      ZONES: [{ ID: '10', DES: 'Zone A' }],
+      STATUS_ZONES: [{ ID: '10', A: 'Y', BYP: 'NO', FM: 'F', STA: 'A' }],
+      BUS_HAS: [{ ID: '9', DES: 'Sensor A' }],
+      STATUS_BUS_HA_SENSORS: [{ ID: '8', DOMUS: 'Y', DES: 'Therm Sensor' }],
+      STATUS_TEMPERATURES: [{ ID: '8', TEMP: '22', THERM: { OUT_STATUS: 'ON' } }],
+      CFG_THERMOSTATS: [{ ID: '8', WIN: { TM: '21' }, ACT_MODE: 'MAN', ACT_SEA: 'WIN', MAN_HRS: '2' }],
+      SCENARIOS: [{ ID: '7', DES: 'Scenario A', CAT: 'CUSTOM' }],
+    };
+
+    const firstOpen = handleOpen();
+    handleMultiTypes({ message: payload });
+    await firstOpen;
+    const firstCount = discovered.length;
+    assert.ok(firstCount > 0);
+
+    handleClose();
+
+    const secondOpen = handleOpen();
+    handleMultiTypes({ message: payload });
+    await secondOpen;
+
+    assert.equal(discovered.length, firstCount * 2);
+  });
+
   it('handleChange falls back to OFF/WIN defaults when THERM is absent', () => {
     const { lares4 } = createLaresWithStubs();
     (lares4 as unknown as { _ws: { sender: string } })._ws.sender = 'test-sender';
@@ -488,5 +768,77 @@ describe('Lares4', () => {
     assert.equal(therm?.mode, 'OFF');
     assert.equal(therm?.season, 'WIN');
     assert.equal(therm?.enabled, false);
+  });
+
+  it('projects STATUS_SYSTEM into public systemStatus and emits onSystemStatus', () => {
+    const systemEvents: Array<{ in?: number; out?: number }> = [];
+    const { lares4 } = createLaresWithStubs({
+      onSystemStatus: (event) => {
+        const snap: { in?: number; out?: number } = {};
+        for (const t of event.status.temperatures) {
+          snap[t.id] = t.value;
+        }
+        systemEvents.push(snap);
+      },
+    });
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+    handleMultiTypes({
+      message: {
+        STATUS_SYSTEM: [{ ID: '1', TEMP: { IN: '24.5', OUT: '7.2' } }],
+      },
+    });
+    assert.equal(lares4.systemStatus.temperatures.find((t) => t.id === 'in')?.value, 24.5);
+    assert.equal(lares4.systemStatus.temperatures.find((t) => t.id === 'out')?.value, 7.2);
+    assert.equal(systemEvents.length, 1);
+  });
+
+  it('reconciles pending STATUS_OUTPUTS when device baseline arrives later', () => {
+    const { lares4 } = createLaresWithStubs();
+    (lares4 as unknown as { _ws: { sender: string } })._ws.sender = 'test-sender';
+    const handleChange = (lares4 as unknown as { handleChange: (evt: { message: Record<string, unknown> }) => void }).handleChange.bind(lares4);
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleChange({
+      message: {
+        'test-sender': {
+          STATUS_OUTPUTS: [{ ID: '42', STA: 'ON', POS: '66' }],
+        },
+      },
+    });
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '42', CAT: Lares4OutputCategories.LIGHT, DES: 'Late Light' }],
+        STATUS_OUTPUTS: [{ ID: '42', STA: 'OFF', POS: '0' }],
+      },
+    });
+
+    assert.equal(lares4.lights.find((d) => d.id === 42)?.brightness, 66);
+    assert.equal(lares4.lights.find((d) => d.id === 42)?.on, true);
+  });
+
+  it('does not create switches from pending STATUS_OUTPUTS when baseline output is excluded', () => {
+    const { lares4 } = createLaresWithStubs();
+    (lares4 as unknown as { _ws: { sender: string } })._ws.sender = 'test-sender';
+    const handleChange = (lares4 as unknown as { handleChange: (evt: { message: Record<string, unknown> }) => void }).handleChange.bind(lares4);
+    const handleMultiTypes = (lares4 as unknown as { handleMultiTypes: (evt: { message: Record<string, unknown> }) => void }).handleMultiTypes.bind(lares4);
+
+    handleChange({
+      message: {
+        'test-sender': {
+          STATUS_OUTPUTS: [{ ID: '55', STA: 'ON', POS: '0' }],
+        },
+      },
+    });
+
+    handleMultiTypes({
+      message: {
+        OUTPUTS: [{ ID: '55', CAT: Lares4OutputCategories.LIGHT, DES: 'Allarme Sirena' }],
+        STATUS_OUTPUTS: [{ ID: '55', STA: 'OFF', POS: '0' }],
+      },
+    });
+
+    assert.equal(lares4.switches.find((d) => d.id === 55), undefined);
+    assert.equal(lares4.lights.find((d) => d.id === 55)?.on, true);
   });
 });

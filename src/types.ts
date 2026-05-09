@@ -23,12 +23,24 @@ export enum Lares4DeviceTypes {
   ZONE = 'zone',
   SCENARIO = 'scenario',
   GATE = 'gate',
+  /** On/off auxiliary output (siren, boiler, twilight relay, etc.) when the panel uses a generic light CAT. */
+  SWITCH = 'switch',
 }
 
 export enum Lares4SensorTypes {
   TEMPERATURE = 'temperature',
   HUMIDITY = 'humidity',
   LIGHT = 'light',
+}
+
+export interface Lares4SystemTemperature {
+  id: 'in' | 'out';
+  value: number;
+  unit: '°C';
+}
+
+export interface Lares4SystemStatusSnapshot {
+  temperatures: Lares4SystemTemperature[];
 }
 
 export enum Lares4CoverStates {
@@ -129,6 +141,11 @@ export interface Lares4Gate extends Lares4Device {
   on: boolean;
 }
 
+export interface Lares4Switch extends Lares4Device {
+  type: Lares4DeviceTypes.SWITCH;
+  on: boolean;
+}
+
 export enum Lares4OutputCategories {
   LIGHT = 'light',
   ROLL = 'roll',
@@ -220,6 +237,45 @@ export interface StatusTemperatures {
     },
     OUT_STATUS: string
   }
+}
+
+export interface StatusSystem {
+  ID: string;
+  ARM?: {
+    D?: string;
+    S?: string;
+  };
+  ALARM?: unknown[];
+  ALARM_MEM?: unknown[];
+  TAMPER?: unknown[];
+  TAMPER_MEM?: unknown[];
+  FAULT?: unknown[];
+  FAULT_MEM?: unknown[];
+  TEMP?: {
+    IN?: string;
+    OUT?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface RawStatusOutputsPayload {
+  STATUS_OUTPUTS: OutputStatus[];
+}
+
+export interface RawStatusZonesPayload {
+  STATUS_ZONES: ZoneStatus[];
+}
+
+export interface RawStatusBusSensorsPayload {
+  STATUS_BUS_HA_SENSORS: Array<{ ID: string; TEMP: number; HUMIDITY: number; LIGHT: number }>;
+}
+
+export interface RawStatusTemperaturesPayload {
+  STATUS_TEMPERATURES: StatusTemperatures[];
+}
+
+export interface RawStatusSystemPayload {
+  STATUS_SYSTEM: StatusSystem[];
 }
 
 export interface ProgramThermostat {
@@ -322,20 +378,31 @@ export enum Lares4SocketEventType{
   OPEN = 'open',
   MULTI_TYPES = 'multi_types',
   CHANGE = 'change',
+  RESPONSE = 'response',
+  RAW = 'raw',
   CLOSE = 'close',
   ERROR = 'error',
 }
 
 export interface Lares4SocketEventEmitted {
   type: Lares4SocketEventType;
-  message?: string | Record<string, unknown>;
+  message?: string | Record<string, unknown> | Lares4Message;
 }
 
 export type Lares4DeviceUpdateEvent =
   | { type: Lares4DeviceTypes.LIGHT; device: Lares4Light }
   | { type: Lares4DeviceTypes.COVER; device: Lares4Cover }
   | { type: Lares4DeviceTypes.GATE; device: Lares4Gate }
+  | { type: Lares4DeviceTypes.SWITCH; device: Lares4Switch }
   | { type: Lares4DeviceTypes.SENSOR; device: Lares4Sensors }
   | { type: Lares4DeviceTypes.THERMOSTAT; device: Lares4Thermostat }
   | { type: Lares4DeviceTypes.ZONE; device: Lares4Zone }
   | { type: Lares4DeviceTypes.SCENARIO; device: Lares4Scenario };
+
+export interface Lares4DeviceDiscoveredEvent {
+  device: Lares4Device;
+}
+
+export interface Lares4SystemStatusEvent {
+  status: Lares4SystemStatusSnapshot;
+}
