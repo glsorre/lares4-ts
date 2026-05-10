@@ -51,6 +51,7 @@
     "test:build": "tsc -p tsconfig.test.json --noEmit",
     "test:run": "tsx --test tests/*.test.ts tests/lib/core/*.test.ts tests/lib/public/*.test.ts tests/lib/internal/*.test.ts",
     "test:coverage": "tsx --test --experimental-test-coverage tests/*.test.ts tests/lib/core/*.test.ts tests/lib/public/*.test.ts tests/lib/internal/*.test.ts",
+    "test:coverage:ci": "npm run test:build && mkdir -p coverage && tsx --test --experimental-test-coverage --test-reporter=spec --test-reporter=lcov --test-reporter-destination=stdout --test-reporter-destination=coverage/lcov.info tests/*.test.ts tests/lib/core/*.test.ts tests/lib/public/*.test.ts tests/lib/internal/*.test.ts",
     "test": "npm run test:build && npm run test:run",
     "prepublishOnly": "npm run lint && npm run build",
     "example": "tsx examples/list-and-watch.ts",
