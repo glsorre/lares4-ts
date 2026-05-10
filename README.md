@@ -1,5 +1,7 @@
 # lares4-ts
 
+Per l'Italiano, guarda [README.it.md](./README.it.md)
+
 TypeScript library for connecting to Ksenia Lares 4 and managing home automation entities (lights, covers, sensors, thermostats, zones, scenarios, gates).
 
 ## Install
