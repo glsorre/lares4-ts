@@ -1,10 +1,9 @@
-import WebSocket from 'ws';
-import { Agent } from 'https';
-import crypto from 'crypto';
 import { Lares4Logger } from '../internal/lares4-logger';
 import type { Lares4CoreState } from './state';
 import { WsTransport } from './transport';
 import { CommandDispatcher } from './command-dispatcher';
+import type { Lares4SocketLike, Lares4WsFactory } from '../../types';
+import { Lares4SocketAdapter } from './socket-adapter';
 
 interface ConnectionServiceOptions {
   ip: string;
@@ -13,7 +12,8 @@ interface ConnectionServiceOptions {
   heartbeatIntervalMs: number;
   reconnectDelayMs: number;
   loginTimeoutMs: number;
-  wsFactory?: (url: string, protocols: string[], options: Record<string, unknown>) => WebSocket;
+  wsFactory?: Lares4WsFactory;
+  wsOptions?: Record<string, unknown>;
 }
 
 interface ConnectionServiceCallbacks {
@@ -53,31 +53,21 @@ export class ConnectionService {
 
       const protocol = this.options.wss ? 'wss' : 'ws';
       const wsUrl = `${protocol}://${this.options.ip}:${this.options.port}/KseniaWsock/`;
-      const wsCtor = this.options.wsFactory ?? ((url: string, protocols: string[], options: Record<string, unknown>) =>
-        new WebSocket(url, protocols, options));
-      const ws = wsCtor(wsUrl, ['KS_WSOCK'], {
-        rejectUnauthorized: false,
-        agent: this.options.wss
-          ? new Agent({
-            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
-            rejectUnauthorized: false,
-            secureProtocol: 'TLS_method',
-            ciphers: 'ALL:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA',
-          })
-          : undefined,
-      });
+      const wsCtor = this.options.wsFactory ?? this.createDefaultWsFactory();
+      const ws = wsCtor(wsUrl, ['KS_WSOCK'], this.options.wsOptions);
+      const adapter = new Lares4SocketAdapter(ws);
 
       this.state.ws = ws;
       this.logger.info(`Connecting to ${wsUrl}...`);
 
-      ws.on('open', () => {
+      adapter.onOpen(() => {
         this.state.isConnected = true;
         this.state.hasCompletedInitialSync = false;
 
         const timeout = setTimeout(() => {
           this.state.pendingLogin = undefined;
           rejectOnce(new Error(`Login timeout after ${this.options.loginTimeoutMs}ms`));
-          if (this.state.ws?.readyState === WebSocket.OPEN) {
+          if (this.state.ws && new Lares4SocketAdapter(this.state.ws).isOpen()) {
             this.state.ws.close(1000, 'Login timeout');
           }
         }, this.options.loginTimeoutMs);
@@ -102,24 +92,26 @@ export class ConnectionService {
         });
       });
 
-      ws.on('message', (data: WebSocket.Data) => {
+      adapter.onMessage((data) => {
         try {
-          this.callbacks.onRawMessage(data.toString());
+          this.callbacks.onRawMessage(adapter.toText(data));
         } catch (error: unknown) {
           this.logger.error(`Unhandled error in message handler: ${error instanceof Error ? error.message : String(error)}`);
         }
       });
 
-      ws.on('pong', () => {
-        this.state.heartbeatPending = false;
-        this.state.lastPongReceived = Date.now();
-      });
+      if (adapter.supportsPing) {
+        adapter.onPong(() => {
+          this.state.heartbeatPending = false;
+          this.state.lastPongReceived = Date.now();
+        });
+      }
 
-      ws.on('close', (code: number, reason: Buffer) => {
+      adapter.onClose((code, reason) => {
         this.state.isConnected = false;
         this.state.idLogin = undefined;
-        const reasonText = reason.toString() || 'No reason';
-        this.dispatcher.rejectAll(new Error(`WebSocket closed (${code} - ${reasonText})`));
+        const reasonText = reason || 'No reason';
+        this.dispatcher.rejectAll(new Error(`WebSocket closed (${code ?? 'unknown'} - ${reasonText})`));
         this.callbacks.onDisconnected();
         if (!this.state.isManualClose) {
           this.scheduleReconnect();
@@ -127,7 +119,7 @@ export class ConnectionService {
         this.state.isManualClose = false;
       });
 
-      ws.on('error', (error: Error) => {
+      adapter.onError((error) => {
         if (this.state.pendingLogin) {
           this.state.pendingLogin.reject(error);
           return;
@@ -145,9 +137,11 @@ export class ConnectionService {
     this.state.heartbeatPending = false;
 
     this.state.heartbeatTimer = setInterval(() => {
-      if (!this.state.isConnected) {
+      if (!this.state.isConnected || !this.state.ws) {
         return;
       }
+
+      const adapter = new Lares4SocketAdapter(this.state.ws);
 
       if (this.state.heartbeatPending) {
         const elapsed = Date.now() - this.state.lastPongReceived;
@@ -156,6 +150,12 @@ export class ConnectionService {
           this.forceReconnect();
           return;
         }
+      }
+
+      if (!adapter.supportsPing) {
+        this.state.heartbeatPending = false;
+        this.state.lastPongReceived = Date.now();
+        return;
       }
 
       this.state.heartbeatPending = true;
@@ -221,5 +221,15 @@ export class ConnectionService {
     this.transport.close(this.state.ws, 1001, 'Heartbeat timeout');
     this.state.isConnected = false;
     this.scheduleReconnect();
+  }
+
+  private createDefaultWsFactory(): Lares4WsFactory {
+    return (url, protocols) => {
+      const wsCtor = globalThis.WebSocket;
+      if (!wsCtor) {
+        throw new Error('No default WebSocket available in runtime. Provide options.wsFactory.');
+      }
+      return new wsCtor(url, protocols) as unknown as Lares4SocketLike;
+    };
   }
 }

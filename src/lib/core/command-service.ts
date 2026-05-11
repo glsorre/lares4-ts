@@ -1,4 +1,3 @@
-import WebSocket from 'ws';
 import type { Lares4Command } from '../../types';
 import { Lares4CommandFactory } from '../internal/lares4-command-factory';
 import { Lares4Logger } from '../internal/lares4-logger';
@@ -6,6 +5,7 @@ import type { Lares4CoreState } from './state';
 import { WsTransport } from './transport';
 import { CommandDispatcher } from './command-dispatcher';
 import { Lares4ConnectionError } from './errors';
+import { Lares4SocketAdapter } from './socket-adapter';
 
 interface SendCommandOptions {
   awaitResponse?: boolean;
@@ -61,7 +61,7 @@ export class CommandService {
     payload: Lares4Command['PAYLOAD'],
     options: SendCommandOptions = {},
   ): Promise<void> {
-    if (!this.state.ws || this.state.ws.readyState !== WebSocket.OPEN) {
+    if (!this.state.ws || !new Lares4SocketAdapter(this.state.ws).isOpen()) {
       throw new Lares4ConnectionError('WebSocket not connected');
     }
 

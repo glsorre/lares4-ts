@@ -12,7 +12,11 @@ export class TypedEmitter<TEvent> {
 
   public emit(event: TEvent): void {
     for (const listener of this.listeners) {
-      listener(event);
+      try {
+        listener(event);
+      } catch {
+        // isolate per-listener errors so subsequent listeners still fire
+      }
     }
   }
 }

@@ -1,14 +1,16 @@
 {
   "name": "lares4-ts",
-  "version": "0.1.0-beta.4",
+  "version": "0.0.9-beta.4",
   "description": "A ts lib to connect and pilot Ksenia Lares 4 smart home pheriperals",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "browser": "./dist/index-browser.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": "./dist/index-browser.js",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"

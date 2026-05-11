@@ -31,7 +31,9 @@ export class Lares4CoreClient {
     options: Lares4SocketOptions,
   ) {
     this.state = createInitialCoreState();
-    this.transport = new WsTransport(logger);
+    this.transport = new WsTransport(logger, (raw) => {
+      this.messages.emit({ type: Lares4SocketEventType.SENT, message: raw });
+    });
     this.dispatcher = new CommandDispatcher();
     const commandFactory = new Lares4CommandFactory(sender, pin);
     this.commandService = new CommandService(
@@ -73,6 +75,8 @@ export class Lares4CoreClient {
         heartbeatIntervalMs: options.heartbeat_interval_ms ?? 30000,
         reconnectDelayMs: options.reconnect_delay_ms ?? 5000,
         loginTimeoutMs: options.login_timeout_ms ?? 10000,
+        wsFactory: options.wsFactory,
+        wsOptions: options.wsOptions,
       },
       {
         executeLogin: () => this.commandService.sendLogin(),

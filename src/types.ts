@@ -166,6 +166,25 @@ export interface GenericLogger {
   debug: (message: string) => void;
 }
 
+export type Lares4LoggerLike = GenericLogger;
+
+export interface Lares4SocketLike {
+  readonly readyState: number;
+  send(data: string, cb?: (error?: Error) => void): void;
+  close(code?: number, reason?: string): void;
+  on?(event: string, handler: (...args: unknown[]) => void): void;
+  addEventListener?(event: string, handler: (event: unknown) => void): void;
+  removeEventListener?(event: string, handler: (event: unknown) => void): void;
+  ping?(): void;
+  terminate?(): void;
+}
+
+export type Lares4WsFactory = (
+  url: string,
+  protocols: string[],
+  options?: Record<string, unknown>
+) => Lares4SocketLike;
+
 // Internal protocol/data-transfer models. Keep these out of root exports.
 
 export interface Output {
@@ -372,6 +391,8 @@ export interface Lares4SocketOptions {
   reconnect_delay_ms?: number;
   login_timeout_ms?: number;
   command_timeout_ms?: number;
+  wsFactory?: Lares4WsFactory;
+  wsOptions?: Record<string, unknown>;
 }
 
 export enum Lares4SocketEventType{
@@ -380,6 +401,7 @@ export enum Lares4SocketEventType{
   CHANGE = 'change',
   RESPONSE = 'response',
   RAW = 'raw',
+  SENT = 'sent',
   CLOSE = 'close',
   ERROR = 'error',
 }
@@ -387,6 +409,11 @@ export enum Lares4SocketEventType{
 export interface Lares4SocketEventEmitted {
   type: Lares4SocketEventType;
   message?: string | Record<string, unknown> | Lares4Message;
+}
+
+export interface Lares4SentEvent {
+  raw: string;
+  command: Lares4Command;
 }
 
 export type Lares4DeviceUpdateEvent =

@@ -230,6 +230,13 @@ describe('ConnectionService', () => {
   it('forces reconnect on heartbeat timeout and clears heartbeat timer', async () => {
     const state = createInitialCoreState();
     state.isConnected = true;
+    state.ws = {
+      readyState: 1,
+      ping: () => undefined,
+      close: () => undefined,
+      on: () => undefined,
+      send: () => undefined,
+    };
     let closeCode = 0;
     let rejectedMessage = '';
     const dispatcher = {

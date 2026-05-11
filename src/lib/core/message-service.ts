@@ -24,7 +24,9 @@ export class MessageService {
       this.messages.emit({ type: Lares4SocketEventType.OPEN });
       this.onLoginCompleted();
       this.commandService.requestInitialData().catch((error: unknown) => {
-        this.logger.error(`Error requesting initial data: ${error instanceof Error ? error.message : String(error)}`);
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error requesting initial data: ${message}`);
+        this.messages.emit({ type: Lares4SocketEventType.ERROR, message });
       });
       return;
     }
@@ -79,7 +81,11 @@ export class MessageService {
     if (message.PAYLOAD_TYPE.startsWith('STATUS_') || message.PAYLOAD_TYPE === 'ZONES') {
       this.messages.emit({
         type: Lares4SocketEventType.CHANGE,
-        message: { [message.PAYLOAD_TYPE]: message.PAYLOAD[message.PAYLOAD_TYPE] },
+        message: {
+          [this.commandService.sender]: {
+            [message.PAYLOAD_TYPE]: message.PAYLOAD[message.PAYLOAD_TYPE],
+          },
+        },
       });
     }
   }

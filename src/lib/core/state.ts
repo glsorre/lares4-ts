@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+import type { Lares4SocketLike } from '../../types';
 
 export interface PendingLogin {
   timeout: ReturnType<typeof setTimeout>;
@@ -7,7 +7,7 @@ export interface PendingLogin {
 }
 
 export interface Lares4CoreState {
-  ws?: WebSocket;
+  ws?: Lares4SocketLike;
   isConnected: boolean;
   idLogin?: string;
   heartbeatTimer?: ReturnType<typeof setInterval>;

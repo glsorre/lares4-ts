@@ -102,6 +102,26 @@ describe('Lares4CoreClient', () => {
     assert.equal(client.sender, 'custom-sender');
   });
 
+  it('emits SENT event on messages emitter when transport.onSent fires', async () => {
+    const client = createClient();
+    const events: Lares4SocketEventEmitted[] = [];
+    client.messages.subscribe((event) => {
+      events.push(event);
+    });
+
+    const transport = (client as unknown as {
+      transport: { onSent?: (raw: string) => void };
+    }).transport;
+    assert.ok(transport.onSent, 'transport should have an onSent callback wired by Lares4CoreClient');
+
+    const frame = JSON.stringify({ CMD: 'READ', PAYLOAD: {} });
+    transport.onSent?.(frame);
+
+    const sentEvent = events.find((event) => event.type === Lares4SocketEventType.SENT);
+    assert.ok(sentEvent);
+    assert.equal(sentEvent.message, frame);
+  });
+
   it('emits CLOSE event when connection service disconnect callback fires', () => {
     const client = createClient();
     const events: Lares4SocketEventEmitted[] = [];

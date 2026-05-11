@@ -36,6 +36,24 @@ lares.rollTo(12, 50);
 lares.triggerScenario(3);
 ```
 
+## Osservabilità
+
+Iscriviti ai frame inviati dopo che il websocket li ha confermati. Utile per console di debug, strumenti di replay o analytics:
+
+```ts
+const unsubscribe = lares.onSent(({ raw, command }) => {
+  console.log('->', command.CMD, command.PAYLOAD_TYPE, raw);
+});
+
+// in seguito
+unsubscribe();
+```
+
+Note:
+- Gli eventi vengono emessi post-ack: solo dopo che il websocket conferma l'invio del frame. I fallimenti continuano a essere segnalati tramite il canale di errore esistente.
+- Il campo `PIN` all'interno del comando `LOGIN` viene oscurato (sostituito con `'***'`) prima che l'evento raggiunga il listener.
+- I ping di heartbeat non passano dalla pipeline di invio e non vengono riportati.
+
 Note:
 - Usa solo import dalla radice del pacchetto (`lares4-ts`).
 - Questa libreria è orientata alle entità di domotica, non ai flussi di inserimento/disinserimento dell'allarme.
@@ -53,6 +71,7 @@ Errori a runtime:
 
 Tipi ed enumerazioni pubblici (dalla radice del pacchetto):
 - Modelli di dispositivo/entità come `Lares4Light`, `Lares4Cover`, `Lares4Thermostat`, `Lares4Sensor`, `Lares4Zone`, `Lares4Scenario`, `Lares4Gate`
+- Payload eventi: `Lares4DeviceUpdateEvent`, `Lares4DeviceDiscoveredEvent`, `Lares4SystemStatusEvent`, `Lares4SentEvent`
 - Tipi di compatibilità: `Lares4ErrorLike`, `ProgramThermostat`, `SystemStatus`
 - Enumerazioni come `Lares4DeviceTypes`, `Lares4SensorTypes`, `Lares4CoverStates`, `Lares4ThermostatActModes`, `Lares4ThermostatSeasons`
 

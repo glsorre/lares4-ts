@@ -4,6 +4,7 @@ export default defineConfig((options) => {
   return {
     entry: [
       'src/index.ts',
+      'src/index-browser.ts',
     ],
     format: ['cjs', 'esm'],
     dts: true,
@@ -11,7 +12,7 @@ export default defineConfig((options) => {
     sourcemap: options.watch ? true : undefined,
     minify: !options.watch ? 'terser' : false,
     clean: true,
-    target: 'node18',
+    target: 'es2020',
     terserOptions: {
       parse: {},
       compress: {

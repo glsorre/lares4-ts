@@ -121,6 +121,70 @@ describe('Lares4', () => {
     assert.equal(opened, 1);
   });
 
+  it('onSent fires with raw + parsed command and unsubscribe stops further events', () => {
+    const { lares4 } = createLaresWithStubs();
+    const received: Array<{ raw: string; command: { CMD: string; PAYLOAD: Record<string, unknown> } }> = [];
+    const unsubscribe = lares4.onSent((event) => {
+      received.push({ raw: event.raw, command: { CMD: event.command.CMD, PAYLOAD: event.command.PAYLOAD } });
+    });
+
+    const handleSent = (lares4 as unknown as {
+      handleSent: (data: { message?: string | Record<string, unknown> }) => void;
+    }).handleSent.bind(lares4);
+
+    const frameA = JSON.stringify({
+      SENDER: 'A',
+      RECEIVER: 'B',
+      CMD: 'READ',
+      ID: '1',
+      PAYLOAD_TYPE: 'STATUS_OUTPUTS',
+      PAYLOAD: { foo: 'bar' },
+      TIMESTAMP: '1',
+      CRC_16: '0x0000',
+    });
+    handleSent({ message: frameA });
+
+    unsubscribe();
+
+    const frameB = JSON.stringify({
+      SENDER: 'A',
+      RECEIVER: 'B',
+      CMD: 'CMD_USR',
+      ID: '2',
+      PAYLOAD_TYPE: 'CMD_SET_OUTPUT',
+      PAYLOAD: {},
+      TIMESTAMP: '2',
+      CRC_16: '0x0000',
+    });
+    handleSent({ message: frameB });
+
+    assert.equal(received.length, 1);
+    assert.equal(received[0].raw, frameA);
+    assert.equal(received[0].command.CMD, 'READ');
+    assert.deepEqual(received[0].command.PAYLOAD, { foo: 'bar' });
+  });
+
+  it('onSent silently warns and skips emit on malformed raw payload', () => {
+    const warnings: string[] = [];
+    const { lares4 } = createLaresWithStubs();
+    (lares4 as unknown as { _logger: { warn: (m: string) => void } })._logger = {
+      warn: (message: string) => warnings.push(message),
+    };
+    let calls = 0;
+    lares4.onSent(() => {
+      calls += 1;
+    });
+
+    const handleSent = (lares4 as unknown as {
+      handleSent: (data: { message?: string | Record<string, unknown> }) => void;
+    }).handleSent.bind(lares4);
+    handleSent({ message: '{not json' });
+
+    assert.equal(calls, 0);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /onSent parse failed/);
+  });
+
   it('command methods emit expected socket payloads', () => {
     const { lares4, sent } = createLaresWithStubs();
 

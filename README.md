@@ -38,6 +38,59 @@ lares.rollTo(12, 50);
 lares.triggerScenario(3);
 ```
 
+## Runtime Configuration (Node + Browser)
+
+The library now supports runtime-agnostic websocket/logger configuration.
+
+`Lares4Options` accepts:
+- `logger` (preferred): custom logger implementing `info|warn|error|debug`
+- `wsFactory`: custom websocket factory
+- `wsOptions`: extra options forwarded to `wsFactory`
+
+### Browser example
+
+```ts
+import { Lares4 } from 'lares4-ts';
+
+const lares = new Lares4('MY_SENDER', '123456', '192.168.1.100', true, {
+  logger: console,
+  wsFactory: (url, protocols) => new WebSocket(url, protocols),
+});
+```
+
+### Node example with custom `ws` factory
+
+```ts
+import WebSocket from 'ws';
+import { Lares4 } from 'lares4-ts';
+
+const lares = new Lares4('MY_SENDER', '123456', '192.168.1.100', true, {
+  logger: console,
+  wsFactory: (url, protocols, options) => new WebSocket(url, protocols, options),
+  wsOptions: {
+    rejectUnauthorized: false,
+  },
+});
+```
+
+## Observability
+
+Subscribe to outgoing frames after they have been acknowledged by the websocket. Useful for debug consoles, replay tooling, or analytics:
+
+```ts
+const unsubscribe = lares.onSent(({ raw, command }) => {
+  console.log('->', command.CMD, command.PAYLOAD_TYPE, raw);
+});
+
+// later
+unsubscribe();
+```
+
+Notes:
+- Events fire post-ack: only after the websocket confirms the frame went out. Send failures continue to surface via the existing error channel.
+- The `PIN` field inside the `LOGIN` command is redacted (replaced with `'***'`) before the event reaches your listener.
+- Heartbeat pings do not go through the send pipeline and are not reported.
+
 Notes:
 - Use package-root imports only (`lares4-ts`).
 - This library targets home automation entities, not alarm arming/disarming workflows.
@@ -55,6 +108,7 @@ Runtime errors:
 
 Public types/enums (from package root):
 - Device/entity models such as `Lares4Light`, `Lares4Cover`, `Lares4Thermostat`, `Lares4Sensor`, `Lares4Zone`, `Lares4Scenario`, `Lares4Gate`
+- Event payloads: `Lares4DeviceUpdateEvent`, `Lares4DeviceDiscoveredEvent`, `Lares4SystemStatusEvent`, `Lares4SentEvent`
 - Compatibility types: `Lares4ErrorLike`, `ProgramThermostat`, `SystemStatus`
 - Enums such as `Lares4DeviceTypes`, `Lares4SensorTypes`, `Lares4CoverStates`, `Lares4ThermostatActModes`, `Lares4ThermostatSeasons`
 

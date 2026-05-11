@@ -66,35 +66,23 @@ export class Lares4CommandFactory {
     this._pin = pin;
   }
 
-  public get get_pin() {
-    return this._pin;
-  }
-
   public get sender() {
     return this._sender;
-  }
-
-  public get get_login_id() {
-    return this._login_id;
   }
 
   public set set_login_id(value: string) {
     this._login_id = value;
   }
 
-  public get get_last_cmd_id() {
-    return this._cmd_id;
-  }
-
-  public get get_next_cmd_id() {
+  private nextCmdId(): number {
     return this._cmd_id++;
   }
 
   private build_payload(payload: Lares4Command['PAYLOAD']) {
     return {
       ...payload,
-      ...(payload?.ID_LOGIN && { ID_LOGIN: this.get_login_id }),
-      ...(payload?.PIN && { PIN: this.get_pin }),
+      ...(payload?.ID_LOGIN && { ID_LOGIN: this._login_id }),
+      ...(payload?.PIN && { PIN: this._pin }),
     };
   }
 
@@ -105,7 +93,7 @@ export class Lares4CommandFactory {
       SENDER: this._sender,
       RECEIVER: '',
       CMD: cmd,
-      ID: `${this.get_next_cmd_id}`,
+      ID: `${this.nextCmdId()}`,
       PAYLOAD_TYPE: payload_type,
       PAYLOAD: this.build_payload(payload),
       TIMESTAMP: `${timestamp}`,

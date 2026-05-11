@@ -61,12 +61,12 @@ export function determineOutputType(categoryRaw: string | undefined, modeRaw: st
     return mode === 'M' ? 'gate' : 'cover';
   }
 
-  if (THERMOSTAT_CATEGORY_HINT.test(category)) {
-    return 'thermostat';
-  }
-
   if (outputDescriptionSuggestsCover(description)) {
     return 'cover';
+  }
+
+  if (THERMOSTAT_CATEGORY_HINT.test(description)) {
+    return 'thermostat';
   }
 
   if (outputDescriptionSuggestsSwitch(description)) {
