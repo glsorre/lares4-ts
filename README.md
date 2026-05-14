@@ -75,7 +75,7 @@ const lares = new Lares4('MY_SENDER', '123456', '192.168.1.100', true, {
 
 ## Observability
 
-Subscribe to outgoing frames after they have been acknowledged by the websocket. Useful for debug consoles, replay tooling, or analytics:
+Subscribe to outgoing frames after they have been acknowledged by the websocket.
 
 ```ts
 const unsubscribe = lares.onSent(({ raw, command }) => {
@@ -85,15 +85,6 @@ const unsubscribe = lares.onSent(({ raw, command }) => {
 // later
 unsubscribe();
 ```
-
-Notes:
-- Events fire post-ack: only after the websocket confirms the frame went out. Send failures continue to surface via the existing error channel.
-- The `PIN` field inside the `LOGIN` command is redacted (replaced with `'***'`) before the event reaches your listener.
-- Heartbeat pings do not go through the send pipeline and are not reported.
-
-Notes:
-- Use package-root imports only (`lares4-ts`).
-- This library targets home automation entities, not alarm arming/disarming workflows.
 
 ## Public API
 
